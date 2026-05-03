@@ -1,23 +1,32 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { playwrightE2eSqlitePath, playwrightE2eTursoUrl } from './e2e-db';
+import { playwrightE2eSqliteSidecars, playwrightE2eTursoUrl } from './e2e-db';
 
 export default async function globalSetup() {
-  for (const f of [
-    playwrightE2eSqlitePath,
-    `${playwrightE2eSqlitePath}-wal`,
-    `${playwrightE2eSqlitePath}-shm`,
-  ]) {
+  const url = playwrightE2eTursoUrl();
+
+  for (const f of playwrightE2eSqliteSidecars()) {
     try {
       fs.unlinkSync(f);
     } catch {
       /* missing */
     }
   }
-  execSync('npx drizzle-kit push --force', {
-    stdio: 'inherit',
+
+  if (url.startsWith('file:')) {
+    fs.mkdirSync(path.dirname(fileURLToPath(url)), { recursive: true });
+  }
+
+  const r = spawnSync('npx', ['drizzle-kit', 'push', '--force'], {
     cwd: process.cwd(),
-    env: { ...process.env, TURSO_DATABASE_URL: playwrightE2eTursoUrl() },
+    env: { ...process.env, TURSO_DATABASE_URL: url },
+    stdio: 'inherit',
   });
+  if (r.error) throw r.error;
+  if (r.status !== 0) {
+    throw new Error(`drizzle-kit push exited with code ${r.status ?? 'unknown'}`);
+  }
 }

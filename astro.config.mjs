@@ -11,10 +11,14 @@ import { enUS } from '@clerk/localizations';
 import { shadcn } from '@clerk/ui/themes';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const e2eDev = process.env.E2E_DEV === 'true';
 
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
+  devToolbar: {
+    enabled: !e2eDev,
+  },
   integrations: [
     react(),
     clerk({

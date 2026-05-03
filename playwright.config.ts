@@ -6,10 +6,12 @@ import { playwrightE2eTursoUrl } from './tests/e2e/e2e-db';
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 4378);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 
-const e2eDb = process.env.PLAYWRIGHT_TURSO_URL ?? playwrightE2eTursoUrl();
+const e2eDb = playwrightE2eTursoUrl();
 
 export default defineConfig({
   globalSetup: './tests/e2e/global-setup.ts',
+  /** Keep artifacts separate from `test-results/e2e.sqlite` used by E2E DB. */
+  outputDir: 'test-results/playwright',
   testDir: 'tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -23,9 +25,14 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command:
-      `SKIP_AUTH=true TURSO_DATABASE_URL="${e2eDb}" npm run dev -- --host 127.0.0.1 --port ` +
-      String(port),
+    command: `SKIP_AUTH=true E2E_DEV=true npm run dev -- --host 127.0.0.1 --port ${String(port)}`,
+    env: {
+      ...process.env,
+      ASTRO_TELEMETRY_DISABLED: '1',
+      E2E_DEV: 'true',
+      SKIP_AUTH: 'true',
+      TURSO_DATABASE_URL: e2eDb,
+    },
     url: baseURL,
     /** Prefer a fresh server with `e2eDb`; set PLAYWRIGHT_REUSE_SERVER=1 to attach to an existing :4378 dev server. */
     reuseExistingServer: !!process.env.PLAYWRIGHT_REUSE_SERVER,

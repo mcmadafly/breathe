@@ -1,10 +1,21 @@
-import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-/** Shared path + URL for Playwright globalSetup and webServer (must stay in sync). */
-export const playwrightE2eSqlitePath = path.join(os.tmpdir(), 'breathe-playwright-e2e.sqlite');
+/**
+ * Keep this path identical in `global-setup.ts` (cleanup + drizzle-kit) and
+ * `playwright.config.ts` (webServer `TURSO_DATABASE_URL`). Override with
+ * `PLAYWRIGHT_TURSO_URL` for a non-default local/remote URL.
+ */
+export const playwrightE2eSqlitePath = path.join(process.cwd(), 'test-results', 'e2e.sqlite');
 
 export function playwrightE2eTursoUrl(): string {
-  return pathToFileURL(playwrightE2eSqlitePath).href;
+  return process.env.PLAYWRIGHT_TURSO_URL ?? pathToFileURL(playwrightE2eSqlitePath).href;
+}
+
+/** SQLite sidecar paths to delete before applying migrations (file DB only). */
+export function playwrightE2eSqliteSidecars(): string[] {
+  const url = playwrightE2eTursoUrl();
+  if (!url.startsWith('file:')) return [];
+  const p = fileURLToPath(url);
+  return [p, `${p}-wal`, `${p}-shm`];
 }

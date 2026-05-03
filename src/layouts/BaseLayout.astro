@@ -81,34 +81,36 @@ const showUpgrade = isPro === false;
     >
       <slot />
     </main>
-    <footer
-      class="border-border/80 text-muted-foreground mt-auto border-t py-5 text-center text-xs leading-relaxed"
-    >
-      <div class="mx-auto max-w-3xl px-3">
-        <p>
-          Breathe is produced by{' '}
-          <a
-            href={TAECHO_SITE_URL}
-            class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
-            rel="noopener noreferrer"
-            target="_blank"
-          >Taecho</a>{' '} - an agency for the AI era | {' '}
-          <a
-            href="/mit-license"
-            class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
-          >
-            MIT License
-          </a> - <a
-            href={BREATHE_GITHUB_REPO_URL}
-            class="text-foreground font-medium underline decoration-neutral-400/60 underline-offset-2 opacity-60 transition-opacity hover:opacity-100"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Contribute on GitHub
-          </a>
-        </p>
-      </div>
-    </footer>
+    <div class="mt-auto pt-8 sm:pt-10">
+      <footer
+        class="border-border/80 text-muted-foreground border-t py-5 text-center text-xs leading-relaxed"
+      >
+        <div class="mx-auto max-w-3xl px-3">
+          <p>
+            Breathe is produced by{' '}
+            <a
+              href={TAECHO_SITE_URL}
+              class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
+              rel="noopener noreferrer"
+              target="_blank"
+            >Taecho</a>{' '} - an agency for the AI era | {' '}
+            <a
+              href="/mit-license"
+              class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
+            >
+              MIT License
+            </a> - <a
+              href={BREATHE_GITHUB_REPO_URL}
+              class="text-foreground font-medium underline decoration-neutral-400/60 underline-offset-2 opacity-60 transition-opacity hover:opacity-100"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Contribute on GitHub
+            </a>
+          </p>
+        </div>
+      </footer>
+    </div>
     <Toaster client:load />
   </body>
 </html>

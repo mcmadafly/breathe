@@ -1,0 +1,16 @@
+---
+description: After a substantive UI/task change, run Vitest and fix failures before shipping
+alwaysApply: true
+---
+
+# Verification after each task
+
+When a coding task is **substantively complete** (UI, routes, auth, or anything that can affect what ships in the browser):
+
+1. Run **`npm test`** (or `npx vitest run`) from the repo root — **unit** plus **component** projects (Vitest config).
+2. If tests fail, fix the app or tests before considering the task done.
+3. For list/composer changes, component tests in **`tests/component/`** cover key `TodoBoard` flows without a browser driver.
+
+Do **not** skip this to save time unless the user explicitly says the change is non-UI and out of scope (e.g. comment-only).
+
+Optional: `npx vitest watch` while developing.

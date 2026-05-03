@@ -19,7 +19,9 @@
     "db:push": "drizzle-kit push",
     "db:push:force": "drizzle-kit push --force",
     "db:studio": "drizzle-kit studio",
-    "test:unit": "vitest run",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:component": "vitest run tests/component",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
@@ -60,10 +62,14 @@
     "zod": "^4.4.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@playwright/test": "^1.59.1",
     "@types/canvas-confetti": "^1.9.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
+    "happy-dom": "^20.0.11",
     "vitest": "^4.1.5"
   }
 }

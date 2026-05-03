@@ -22,7 +22,6 @@ import {
   type KeyboardEvent,
   type MutableRefObject,
 } from 'react';
-import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -819,19 +818,32 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   }
 
   function onComposerTitleChange(raw: string) {
-    flushSync(() => {
-      if (raw.length <= TODO_TITLE_MAX_LENGTH) {
-        setTitle(raw);
-        return;
-      }
-      setTitle(raw.slice(0, TODO_TITLE_MAX_LENGTH));
-      const extra = raw.slice(TODO_TITLE_MAX_LENGTH);
-      setBody((prev) => (prev + extra).slice(0, TODO_BODY_MAX_LENGTH));
-    });
+    if (raw.length <= TODO_TITLE_MAX_LENGTH) {
+      setTitle(raw);
+      return;
+    }
+    setTitle(raw.slice(0, TODO_TITLE_MAX_LENGTH));
+    const extra = raw.slice(TODO_TITLE_MAX_LENGTH);
+    setBody((prev) => (prev + extra).slice(0, TODO_BODY_MAX_LENGTH));
+  }
+
+  function readComposerFromForm(form: HTMLFormElement) {
+    const titleTa = form.querySelector<HTMLTextAreaElement>('textarea[name="title"]');
+    const bodyTa = form.querySelector<HTMLTextAreaElement>('textarea[name="body"]');
+    return {
+      domTitle: (titleTa?.value ?? '').trim(),
+      domBody: (bodyTa?.value ?? '').trim(),
+    };
   }
 
   function canSubmitCreate() {
-    return busy !== 'create' && Boolean(title.trim() || body.trim());
+    if (busy === 'create') return false;
+    const form = createFormRef.current;
+    if (form) {
+      const { domTitle, domBody } = readComposerFromForm(form);
+      if (domTitle || domBody) return true;
+    }
+    return Boolean(title.trim() || body.trim());
   }
 
   function requestCreateSubmit() {
@@ -853,9 +865,11 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     requestCreateSubmit();
   }
 
-  async function onCreate(e: FormEvent) {
+  async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const merged = mergeTodoContent(title.trim(), body.trim());
+    const form = e.currentTarget;
+    const { domTitle, domBody } = readComposerFromForm(form);
+    const merged = mergeTodoContent(domTitle || title.trim(), domBody || body.trim());
     if (!merged.trim() || busy === 'create') return;
     setBusy('create');
     const res = await actions.createTodo({
@@ -1254,6 +1268,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     </div>
   ) : (
     <form
+      method="post"
       ref={createFormRef}
       onSubmit={onCreate}
       className="flex flex-col gap-2"

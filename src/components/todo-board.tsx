@@ -41,7 +41,7 @@ function normalizeRow(raw: unknown): TodoRow {
   };
 }
 
-const accentOrange = 'bg-[#E65124] hover:bg-[#c43d18] dark:bg-[#E65124] dark:hover:bg-[#ff6a35]';
+const accentOrange = 'bg-[#f97316] hover:bg-[#ea580c] dark:bg-[#f97316] dark:hover:bg-[#ea580c]';
 
 function burstConfettiFromCheckbox(el: HTMLElement) {
   const rect = el.getBoundingClientRect();
@@ -60,16 +60,40 @@ function burstConfettiFromCheckbox(el: HTMLElement) {
 
 export function TodoBoard({ initialTodos, isPro }: Props) {
   const checkboxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const skipEditBlurSaveRef = useRef(false);
   const [items, setItems] = useState<TodoRow[]>(initialTodos);
   const [title, setTitle] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [filter, setFilter] = useState<FilterId>('all');
+  const [listsOpen, setListsOpen] = useState(false);
+  const listsDrawerRef = useRef<HTMLDivElement>(null);
+  const listsStripRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isPro) setFilter('all');
   }, [isPro]);
+
+  useEffect(() => {
+    if (!listsOpen) return;
+    function onDocPointerDown(e: PointerEvent) {
+      const t = e.target as Node;
+      if (listsDrawerRef.current?.contains(t)) return;
+      if (listsStripRef.current?.contains(t)) return;
+      setListsOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setListsOpen(false);
+    }
+    document.addEventListener('pointerdown', onDocPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [listsOpen]);
 
   const atLimit = !isPro && items.length >= FREE_TODO_LIMIT;
 
@@ -80,27 +104,8 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
 
   const categoriesLocked = !isPro;
 
-  const mainHeading =
-    TODO_CATEGORY_TABS.find((t) => t.id === filter)?.label ?? 'Lists';
-
-  function tabButtonClasses(tabId: FilterId, variant: 'bar' | 'sidebar') {
+  function tabButtonClasses(tabId: FilterId) {
     const selected = filter === tabId;
-    if (variant === 'bar') {
-      return cn(
-        '-mb-px bg-transparent pb-2.5 pt-1 text-sm transition-colors',
-        'border-b-[3px] border-transparent',
-        categoriesLocked && 'cursor-not-allowed text-muted-foreground opacity-55',
-        categoriesLocked && selected && 'border-muted-foreground/35 font-medium opacity-70',
-        categoriesLocked && !selected && 'font-normal',
-        !categoriesLocked &&
-          selected &&
-          'border-red-600 font-bold text-foreground dark:border-red-500',
-        !categoriesLocked &&
-          !selected &&
-          'font-normal text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200',
-      );
-    }
-    /* sidebar */
     return cn(
       'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
       categoriesLocked && 'cursor-not-allowed opacity-50',
@@ -110,6 +115,23 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
         'font-normal text-[#8e8e8e] hover:bg-white/60 dark:text-neutral-400 dark:hover:bg-white/5',
       categoriesLocked && selected && 'bg-white/40 font-semibold text-neutral-600 dark:bg-white/5 dark:text-neutral-300',
       categoriesLocked && !selected && 'font-normal text-[#8e8e8e]/70 dark:text-neutral-500',
+    );
+  }
+
+  function tabBarButtonClasses(tabId: FilterId) {
+    const selected = filter === tabId;
+    return cn(
+      '-mb-px bg-transparent pb-2.5 pt-1 text-sm transition-colors',
+      'border-b-[3px] border-transparent',
+      categoriesLocked && 'cursor-not-allowed text-muted-foreground opacity-55',
+      categoriesLocked && selected && 'border-muted-foreground/35 font-medium opacity-70',
+      categoriesLocked && !selected && 'font-normal',
+      !categoriesLocked &&
+        selected &&
+        'border-[#f97316] font-bold text-foreground dark:border-[#f97316]',
+      !categoriesLocked &&
+        !selected &&
+        'font-normal text-neutral-500 hover:text-[#f97316] dark:text-neutral-400 dark:hover:text-[#f97316]',
     );
   }
 
@@ -128,6 +150,7 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     }
     if (res.data) setItems((prev) => [normalizeRow(res.data), ...prev]);
     setTitle('');
+    setComposerOpen(false);
   }
 
   async function onToggle(id: string, done: boolean) {
@@ -151,9 +174,17 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     setItems((prev) => prev.filter((x) => x.id !== id));
   }
 
-  async function onSaveEdit(id: string) {
+  async function commitEdit(id: string) {
     const t = editText.trim();
-    if (!t) return;
+    if (!t) {
+      setEditingId(null);
+      return;
+    }
+    const prev = items.find((x) => x.id === id)?.title;
+    if (prev !== undefined && t === prev) {
+      setEditingId(null);
+      return;
+    }
     setBusy(id);
     const res = await actions.updateTodoTitle({ id, title: t });
     setBusy(null);
@@ -163,44 +194,17 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     setEditingId(null);
   }
 
+  function cancelEditing() {
+    setEditingId(null);
+  }
+
   function startEdit(row: TodoRow) {
     setEditingId(row.id);
     setEditText(row.title);
   }
 
-  const tablist = (
-    <div
-      role="tablist"
-      aria-label="Categories"
-      aria-disabled={categoriesLocked}
-      className="flex flex-wrap items-end gap-x-8 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
-    >
-      {TODO_CATEGORY_TABS.map((tab) => {
-        const selected = filter === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            disabled={categoriesLocked}
-            className={tabButtonClasses(tab.id, 'bar')}
-            onClick={() => {
-              if (!categoriesLocked) setFilter(tab.id);
-            }}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-
   const sidebarNav = (
     <nav className="flex flex-col gap-1" aria-label="Categories">
-      <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#8e8e8e] dark:text-neutral-500">
-        Lists
-      </p>
       {TODO_CATEGORY_TABS.map((tab) => {
         const selected = filter === tab.id;
         return (
@@ -210,9 +214,12 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
             role="tab"
             aria-selected={selected}
             disabled={categoriesLocked}
-            className={tabButtonClasses(tab.id, 'sidebar')}
+            className={tabButtonClasses(tab.id)}
             onClick={() => {
-              if (!categoriesLocked) setFilter(tab.id);
+              if (!categoriesLocked) {
+                setFilter(tab.id);
+                setListsOpen(false);
+              }
             }}
           >
             <List className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
@@ -221,6 +228,67 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
         );
       })}
     </nav>
+  );
+
+  const mobileCategoryTablist = (
+    <div
+      role="tablist"
+      aria-label="Categories"
+      aria-disabled={categoriesLocked}
+      className="flex flex-wrap items-end gap-x-8 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
+    >
+      {TODO_CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === tab.id}
+            disabled={categoriesLocked}
+            className={tabBarButtonClasses(tab.id)}
+            onClick={() => {
+              if (!categoriesLocked) setFilter(tab.id);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+    </div>
+  );
+
+  const listsDrawer = (
+    <div className="hidden shrink-0 gap-0 self-stretch lg:flex">
+      <button
+        ref={listsStripRef}
+        type="button"
+        aria-expanded={listsOpen}
+        aria-controls="lists-drawer-panel"
+        className={cn(
+          'flex min-h-[11rem] shrink-0 cursor-pointer flex-col items-center justify-center border-0 bg-transparent p-0 shadow-none outline-none',
+          'text-xs font-medium tracking-tight text-[#8e8e8e] transition-colors duration-150 ease-out hover:text-[#f97316]',
+          'focus-visible:ring-2 focus-visible:ring-neutral-900/15 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          'dark:text-neutral-500 dark:hover:text-[#f97316] dark:focus-visible:ring-white/20',
+          'lg:min-h-0 lg:flex-1',
+        )}
+        onClick={() => setListsOpen((o) => !o)}
+      >
+        <span className="select-none [writing-mode:vertical-rl]">Show lists</span>
+      </button>
+      <div
+        ref={listsDrawerRef}
+        id="lists-drawer-panel"
+        role="region"
+        aria-label="Categories"
+        className={cn(
+          'flex min-h-0 flex-col overflow-hidden rounded-xl border border-l-0',
+          'border-transparent bg-white/50 backdrop-blur-xl transition-[max-width,opacity,border-color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] dark:bg-neutral-900/45',
+          listsOpen
+            ? 'max-w-[min(13.5rem,calc(100vw-3rem))] border-black/[0.06] opacity-100 shadow-sm dark:border-white/[0.09]'
+            : 'max-w-0 border-transparent opacity-0',
+        )}
+      >
+        <div className="w-[min(13.5rem,calc(100vw-3rem))] min-w-0 p-3">{sidebarNav}</div>
+      </div>
+    </div>
   );
 
   const listSection = (
@@ -273,28 +341,50 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
             </button>
             <div className="min-w-0 flex-1 py-0.5">
               {editingId === row.id ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
                   <Input
                     autoFocus
                     value={editText}
                     onChange={(ev) => setEditText(ev.target.value)}
                     onKeyDown={(ev) => {
-                      if (ev.key === 'Enter') void onSaveEdit(row.id);
-                      if (ev.key === 'Escape') setEditingId(null);
+                      if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        void commitEdit(row.id);
+                      }
+                      if (ev.key === 'Escape') {
+                        ev.preventDefault();
+                        skipEditBlurSaveRef.current = true;
+                        cancelEditing();
+                      }
+                    }}
+                    onBlur={() => {
+                      queueMicrotask(() => {
+                        if (skipEditBlurSaveRef.current) {
+                          skipEditBlurSaveRef.current = false;
+                          return;
+                        }
+                        if (editingId !== row.id) return;
+                        void commitEdit(row.id);
+                      });
                     }}
                     className={cn(
-                      'h-10 rounded-xl border-neutral-200 bg-[#f7f7f7] dark:border-neutral-600 dark:bg-white/5',
+                      'h-10 min-w-0 flex-1 rounded-xl border-neutral-200 bg-[#f7f7f7] dark:border-neutral-600 dark:bg-white/5',
                     )}
                   />
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" className="rounded-xl" onClick={() => void onSaveEdit(row.id)}>
-                      <Check className="mr-1 size-4" />
-                      Save
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" className="rounded-xl" onClick={() => setEditingId(null)}>
-                      Cancel
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0 rounded-xl"
+                    onPointerDown={() => {
+                      skipEditBlurSaveRef.current = true;
+                    }}
+                    onClick={() => {
+                      cancelEditing();
+                    }}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               ) : (
                 <p
@@ -339,8 +429,12 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
       </Button>
     </div>
   ) : (
-    <form onSubmit={onCreate} className="flex flex-col gap-3 lg:gap-2">
-      <div className="grid min-w-0 flex-1 gap-1.5">
+    <form
+      onSubmit={onCreate}
+      className="flex items-center gap-2"
+      onClick={() => setComposerOpen(true)}
+    >
+      <div className={cn('relative min-w-0 flex-1', composerOpen && 'h-10')}>
         <Label htmlFor="new-todo" className="sr-only">
           New item
         </Label>
@@ -349,68 +443,62 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
           name="title"
           value={title}
           onChange={(ev) => setTitle(ev.target.value)}
+          onFocus={() => setComposerOpen(true)}
+          onBlur={() => {
+            if (!title.trim()) setComposerOpen(false);
+          }}
           placeholder="Add a task…"
           autoComplete="off"
           className={cn(
-            'h-12 rounded-xl border-0 bg-[#f7f7f7] text-[15px] text-neutral-900 shadow-inner shadow-black/[0.04]',
+            'box-border appearance-none py-0 leading-none',
+            composerOpen ? 'h-full min-h-0' : 'h-10',
+            'rounded-xl border border-transparent px-4 text-[15px] text-neutral-900',
+            'focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:border-transparent dark:focus-visible:ring-white/15',
+            composerOpen
+              ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
+              : 'bg-transparent shadow-none dark:bg-transparent',
             'placeholder:text-[#8e8e8e]',
-            'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:bg-white/[0.06] dark:text-white dark:focus-visible:ring-white/15',
           )}
         />
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+      {composerOpen ? (
         <Button
           type="submit"
           disabled={busy === 'create' || !title.trim()}
           className={cn(
-            'h-11 shrink-0 rounded-xl px-8 font-semibold text-white shadow-md shadow-orange-900/25',
+            'box-border h-[38px] max-h-[38px] min-h-[38px] shrink-0 rounded-xl border border-transparent px-4 py-0 text-[15px] font-semibold leading-none text-white shadow-md shadow-orange-900/25',
             accentOrange,
           )}
         >
           Add task
         </Button>
-      </div>
+      ) : null}
     </form>
   );
 
   return (
-    <div
-      className={cn(
-        'rounded-[1.75rem] p-1.5 sm:p-2',
-        'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
-        'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
-      )}
-    >
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-2">
-        {/* Glass sidebar — desktop only */}
-        <aside
+    <div className="flex flex-row items-stretch gap-2 sm:gap-2.5">
+      {listsDrawer}
+      <div
+        className={cn(
+          'min-w-0 flex-1 rounded-[1.75rem] p-2 sm:p-2.5',
+          'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
+          'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
+        )}
+      >
+        <div
           className={cn(
-            'hidden shrink-0 flex-col rounded-2xl border p-3 lg:flex lg:w-56',
-            'border-white/50 bg-white/50 shadow-sm backdrop-blur-xl',
-            'dark:border-white/10 dark:bg-neutral-900/40 dark:shadow-none',
+            'flex min-h-0 flex-1 flex-col gap-3 rounded-[1.25rem] border px-4 pb-4 pt-4',
+            'border-black/[0.06] bg-white shadow-sm',
+            'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
           )}
         >
-          {sidebarNav}
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {/* Underline tabs — small screens only */}
-          <div className="lg:hidden">{tablist}</div>
-
-          {/* Main card */}
-          <div
-            className={cn(
-              'flex min-h-0 flex-1 flex-col gap-3 rounded-2xl border p-4',
-              'border-black/[0.06] bg-white shadow-sm',
-              'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
-            )}
-          >
-            <h2 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">{mainHeading}</h2>
-
-            {listSection}
-
-            {formOrUpgrade}
+          <div className="lg:hidden -mx-4 -mt-4 mb-1 px-4 pt-4">
+            {mobileCategoryTablist}
           </div>
+          {listSection}
+
+          {formOrUpgrade}
         </div>
       </div>
     </div>

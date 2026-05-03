@@ -1,14 +1,36 @@
-import { defineMiddleware } from 'astro:middleware';
+import type { User } from '@clerk/backend';
 import type { APIContext } from 'astro';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/astro/server';
 import { eq } from 'drizzle-orm';
-import { getSession } from 'auth-astro/server';
 
 import { ensureUser } from '@/lib/auth/ensure-user';
-import { getDevSession, isSkipAuth } from '@/lib/auth/dev-session';
+import { getDevSession, isForcePro, isSkipAuth } from '@/lib/auth/dev-session';
+import type { AppSession } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 
+const isProtectedRoute = createRouteMatcher(['/app(.*)', '/upgrade(.*)']);
+
+function clerkUserToSession(user: User): AppSession {
+  const email =
+    user.primaryEmailAddress?.emailAddress ??
+    user.emailAddresses[0]?.emailAddress ??
+    null;
+  return {
+    user: {
+      id: user.id,
+      email: email ?? undefined,
+      name: user.fullName ?? user.username ?? undefined,
+      image: user.imageUrl ?? undefined,
+    },
+  };
+}
+
 async function refreshProStatus(context: APIContext) {
+  if (isForcePro()) {
+    context.locals.isPro = true;
+    return;
+  }
   const uid = context.locals.session?.user?.id;
   if (!uid) {
     context.locals.isPro = false;
@@ -18,15 +40,19 @@ async function refreshProStatus(context: APIContext) {
   context.locals.isPro = Boolean(row?.isPro);
 }
 
-export const onRequest = defineMiddleware(async (context, next) => {
+export const onRequest = clerkMiddleware(async (auth, context, next) => {
   context.locals.isPro = false;
+  context.locals.session = null;
+
+  const pathname = context.url.pathname.replace(/\/$/, '') || '/';
+  if (pathname === '/signin') {
+    return context.redirect('/sign-in');
+  }
 
   if (isSkipAuth()) {
-    const pathname = context.url.pathname.replace(/\/$/, '') || '/';
-    if (pathname === '/' || pathname === '/signin') {
+    if (pathname === '/' || pathname === '/sign-in' || pathname === '/sign-up') {
       return context.redirect('/app');
     }
-
     const session = getDevSession();
     context.locals.session = session;
     await ensureUser(session);
@@ -34,18 +60,27 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  const session = await getSession(context.request);
-  context.locals.session = session;
+  const { isAuthenticated, userId } = auth();
 
-  if (session) {
-    await ensureUser(session);
-    await refreshProStatus(context);
+  if (isAuthenticated && userId) {
+    const user = await context.locals.currentUser();
+    if (user) {
+      context.locals.session = clerkUserToSession(user);
+    } else {
+      context.locals.session = {
+        user: {
+          id: userId,
+          email: `${userId}@users.clerk.local`,
+        },
+      };
+    }
+    await ensureUser(context.locals.session);
   }
 
-  if (context.url.pathname.startsWith('/app')) {
-    if (!session) {
-      return context.redirect('/signin');
-    }
+  await refreshProStatus(context);
+
+  if (isProtectedRoute(context.request) && !context.locals.session?.user?.id) {
+    return context.redirect('/sign-in');
   }
 
   return next();

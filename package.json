@@ -1,11 +1,11 @@
 {
-  "name": "scribbbles",
+  "name": "breathe",
   "type": "module",
   "version": "0.0.1",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mcmadafly/scribbbles.git"
+    "url": "https://github.com/mcmadafly/breathe.git"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -18,13 +18,18 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:push:force": "drizzle-kit push --force",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@astrojs/node": "^10.0.6",
     "@astrojs/react": "^5.0.4",
-    "@auth/core": "^0.37.4",
+    "@clerk/astro": "^3.1.0",
+    "@clerk/localizations": "^4.5.8",
+    "@clerk/ui": "^1.7.0",
     "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/manrope": "^5.2.8",
     "@libsql/client": "^0.17.3",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -34,7 +39,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "astro": "^6.2.1",
-    "auth-astro": "^4.2.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -52,6 +56,7 @@
     "zod": "^4.4.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/canvas-confetti": "^1.9.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10"

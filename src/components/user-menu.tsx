@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,18 +18,28 @@ interface Props {
 
 export function UserMenu({ name, email, image }: Props) {
   async function logout() {
-    const { signOut } = await import('auth-astro/client');
-    await signOut();
+    const { signOutClerk } = await import('@/lib/auth/sign-out-client');
+    await signOutClerk('/');
   }
+
+  const ariaLabel =
+    name && email ? `Account menu for ${name}` : name ? `Account menu for ${name}` : email ? `Account menu for ${email}` : 'Account menu';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" className="relative h-9 gap-2 px-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-9 shrink-0 rounded-full"
+          aria-label={ariaLabel}
+        >
           {image ? (
-            <img src={image} alt="" className="size-7 rounded-full" referrerPolicy="no-referrer" />
-          ) : null}
-          <span className="max-w-[10rem] truncate text-sm font-medium">{name ?? email ?? 'Account'}</span>
+            <img src={image} alt="" className="size-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <User className="size-[1.125rem]" strokeWidth={1.75} />
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

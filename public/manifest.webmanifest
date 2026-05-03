@@ -1,7 +1,7 @@
 {
-  "name": "Scribbbles",
-  "short_name": "Scribbbles",
-  "description": "Minimal todos that stay out of your way.",
+  "name": "Breathe",
+  "short_name": "Breathe",
+  "description": "A minimal todo list with room to breathe—capture tasks without clutter. Breathe. Build. Repeat.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fafafa",

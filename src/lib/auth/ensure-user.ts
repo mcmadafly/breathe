@@ -1,10 +1,10 @@
-import type { Session } from '@auth/core/types';
 import { eq } from 'drizzle-orm';
 
+import type { AppSession } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 
-export async function ensureUser(session: Session) {
+export async function ensureUser(session: AppSession) {
   const u = session.user;
   if (!u?.id) return;
 

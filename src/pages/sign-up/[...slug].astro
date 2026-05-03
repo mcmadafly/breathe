@@ -1,0 +1,17 @@
+---
+import { SignUp } from '@clerk/astro/components';
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { isSkipAuth } from '@/lib/auth/dev-session';
+
+if (isSkipAuth()) return Astro.redirect('/app');
+
+const { userId } = Astro.locals.auth();
+if (userId) return Astro.redirect('/app');
+---
+
+<BaseLayout title="Sign up · Breathe" session={null}>
+  <div class="mx-auto flex w-full max-w-md justify-center py-4">
+    <SignUp path="/sign-up" routing="path" signInUrl="/sign-in" />
+  </div>
+</BaseLayout>

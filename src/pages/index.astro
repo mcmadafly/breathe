@@ -1,32 +1,42 @@
 ---
-import { getSession } from 'auth-astro/server';
-
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { HomeBreatheTitle } from '@/components/home-breathe-title';
 import { isSkipAuth } from '@/lib/auth/dev-session';
 
 if (isSkipAuth()) return Astro.redirect('/app');
 
-const session = await getSession(Astro.request);
-if (session) return Astro.redirect('/app');
+const { userId } = Astro.locals.auth();
+if (userId) return Astro.redirect('/app');
 ---
 
-<BaseLayout title="Scribbbles" session={null}>
-  <section class="space-y-10 text-center">
-    <div class="space-y-4">
-      <h1 class="font-heading text-foreground text-4xl font-semibold tracking-tight sm:text-5xl">
-        scribbbles
-      </h1>
-      <p class="text-muted-foreground text-balance text-lg sm:text-xl">
-        A minimal list for everything you need to remember — nothing you don&apos;t.
-      </p>
+<BaseLayout title="Breathe" session={null} showHeader={false}>
+  <div class="relative mx-auto flex min-h-[min(85vh,44rem)] w-full max-w-2xl flex-col items-center justify-center">
+    <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[2rem]" aria-hidden="true">
+      <div
+        class="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-20%,rgba(249,115,22,0.16),transparent_55%),radial-gradient(ellipse_55%_50%_at_105%_35%,rgba(99,102,241,0.11),transparent_50%),radial-gradient(ellipse_45%_45%_at_-5%_75%,rgba(34,197,94,0.09),transparent_48%)] dark:bg-[radial-gradient(ellipse_90%_60%_at_50%_-20%,rgba(249,115,22,0.22),transparent_55%),radial-gradient(ellipse_55%_50%_at_105%_35%,rgba(129,140,248,0.16),transparent_50%),radial-gradient(ellipse_45%_45%_at_-5%_80%,rgba(52,211,153,0.12),transparent_48%)]"
+      />
+      <div class="absolute inset-0 bg-background/65 dark:bg-background/75" />
+      <div
+        class="absolute inset-0 ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+      />
     </div>
-    <div class="flex flex-wrap items-center justify-center gap-4">
-      <a
-        href="/signin"
-        class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center justify-center rounded-md px-8 text-sm font-medium transition-colors"
-      >
-        Get started
-      </a>
-    </div>
-  </section>
+    <section class="relative z-10 flex w-full flex-col items-center space-y-8 px-4 py-12 text-center sm:px-6 sm:py-16">
+      <div class="flex w-full flex-col items-center space-y-3">
+        <HomeBreatheTitle client:load />
+        <p
+          class="text-muted-foreground mx-auto max-w-md text-balance text-sm leading-relaxed sm:text-[0.9375rem]"
+        >
+          A minimal list for everything you need to remember — nothing you don&apos;t.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <a
+          href="/sign-in"
+          class="inline-flex h-9 items-center justify-center rounded-md border border-foreground/20 bg-transparent px-5 text-xs font-medium text-foreground transition-colors hover:border-[#f97316] hover:bg-[#f97316] hover:text-white dark:border-white/20 dark:hover:border-[#f97316]"
+        >
+          Get started
+        </a>
+      </div>
+    </section>
+  </div>
 </BaseLayout>

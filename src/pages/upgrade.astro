@@ -3,12 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { UpgradeProButton } from '@/components/upgrade-pro-button';
 
 const session = Astro.locals.session;
-if (!session?.user?.id) return Astro.redirect('/signin');
+if (!session?.user?.id) return Astro.redirect('/sign-in');
 
 const isPro = Astro.locals.isPro;
 ---
 
-<BaseLayout title="Upgrade · Scribbbles" session={session} isPro={isPro}>
+<BaseLayout title="Upgrade · Breathe" session={session} isPro={isPro}>
   <div class="text-muted-foreground mx-auto max-w-md space-y-6 text-center text-sm">
     {
       isPro ? (

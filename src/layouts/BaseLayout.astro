@@ -1,21 +1,22 @@
 ---
 import '../styles/global.css';
 
-import type { Session } from '@auth/core/types';
+import type { AppSession } from '@/lib/auth/session';
 
-import { ThemeToggle } from '@/components/theme-toggle';
-import { TAECHO_SITE_URL } from '@/lib/site';
+import { SiteHeader } from '@/components/site-header';
+import { BREATHE_GITHUB_REPO_URL, SITE_DESCRIPTION, TAECHO_SITE_URL } from '@/lib/site';
 import { Toaster } from '@/components/ui/sonner';
-import { UserMenu } from '@/components/user-menu';
 
 interface Props {
   title?: string;
-  session?: Session | null;
+  session?: AppSession | null;
   /** When `false`, show an Upgrade control (pass from authenticated routes). */
   isPro?: boolean;
+  /** When `false`, hide the sticky site header (e.g. marketing home). */
+  showHeader?: boolean;
 }
 
-const { title = 'Scribbbles', session = null, isPro } = Astro.props;
+const { title = 'Breathe', session = null, isPro, showHeader = true } = Astro.props;
 
 const skipAuth = import.meta.env.SKIP_AUTH === 'true';
 const homeHref = skipAuth ? '/app' : session?.user ? '/app' : '/';
@@ -28,7 +29,13 @@ const showUpgrade = isPro === false;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <meta name="description" content="A calm place for quick todos." />
+    <meta name="description" content={SITE_DESCRIPTION} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={SITE_DESCRIPTION} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={SITE_DESCRIPTION} />
     <meta name="theme-color" content="#fafafa" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -51,39 +58,27 @@ const showUpgrade = isPro === false;
     </script>
   </head>
   <body class="bg-background text-foreground flex min-h-screen flex-col antialiased">
-    <header
-      class="border-border/80 bg-background/80 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 border-b backdrop-blur"
+    {showHeader ? (
+      <header
+        class="bg-background/80 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 backdrop-blur"
+      >
+        <SiteHeader
+          client:load
+          homeHref={homeHref}
+          showUpgrade={showUpgrade}
+          skipAuth={skipAuth}
+          userName={session?.user?.name ?? undefined}
+          userEmail={session?.user?.email ?? undefined}
+          userImage={session?.user?.image ?? undefined}
+        />
+      </header>
+    ) : null}
+    <main
+      class:list={[
+        'mx-auto w-full max-w-3xl flex-1 px-3',
+        showHeader ? 'py-5 sm:py-6' : 'flex flex-col items-center justify-center py-10 sm:py-12',
+      ]}
     >
-      <div class="mx-auto flex h-12 max-w-3xl items-center justify-between gap-3 px-3">
-        <a href={homeHref} class="font-heading text-lg font-semibold tracking-tight hover:opacity-90">
-          Scribbbles
-        </a>
-        <div class="flex items-center gap-2">
-          {
-            showUpgrade ? (
-              <a
-                href="/upgrade"
-                class="focus-visible:ring-ring inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#E65124] px-3 text-xs font-semibold text-white shadow-sm outline-none transition-colors hover:bg-[#c43d18] focus-visible:ring-2 focus-visible:ring-offset-2 dark:hover:bg-[#ff6a35]"
-              >
-                Upgrade
-              </a>
-            ) : null
-          }
-          <ThemeToggle client:load />
-          {
-            session?.user && !skipAuth ? (
-              <UserMenu
-                client:load
-                name={session.user.name}
-                email={session.user.email}
-                image={session.user.image}
-              />
-            ) : null
-          }
-        </div>
-      </div>
-    </header>
-    <main class="mx-auto w-full max-w-3xl flex-1 px-3 py-5 sm:py-6">
       <slot />
     </main>
     <footer
@@ -91,23 +86,26 @@ const showUpgrade = isPro === false;
     >
       <div class="mx-auto max-w-3xl px-3">
         <p>
-          scribbbles is a product made by{' '}
+          Breathe is produced by{' '}
           <a
             href={TAECHO_SITE_URL}
             class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
             rel="noopener noreferrer"
             target="_blank"
-          >
-            Taecho
-          </a>
-          .{' '}
+          >Taecho</a>{' '} - an agency for the AI era | {' '}
           <a
-            href="/license"
+            href="/mit-license"
             class="text-foreground font-medium underline decoration-neutral-400/80 underline-offset-2 hover:opacity-90"
           >
             MIT License
+          </a> - <a
+            href={BREATHE_GITHUB_REPO_URL}
+            class="text-foreground font-medium underline decoration-neutral-400/60 underline-offset-2 opacity-60 transition-opacity hover:opacity-100"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Contribute on GitHub
           </a>
-          .
         </p>
       </div>
     </footer>

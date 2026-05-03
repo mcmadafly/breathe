@@ -1,0 +1,19 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const licensePath = path.join(process.cwd(), 'LICENSE');
+const licenseText = fs.readFileSync(licensePath, 'utf8');
+---
+
+<BaseLayout title="MIT License · Scribbbles">
+  <article class="max-w-none">
+    <h1 class="text-foreground mb-4 text-xl font-semibold tracking-tight">MIT License</h1>
+    <pre
+      class="border-border bg-muted/30 text-muted-foreground overflow-x-auto rounded-xl border p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap"
+      >{licenseText}</pre
+    >
+  </article>
+</BaseLayout>

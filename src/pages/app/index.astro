@@ -1,0 +1,27 @@
+---
+import { TodoBoard, type TodoRow } from '@/components/todo-board';
+import { DEFAULT_TODO_CATEGORY } from '@/lib/todo-categories';
+import { listTodosForUser } from '@/lib/db/todos';
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const session = Astro.locals.session;
+if (!session?.user?.id) return Astro.redirect('/signin');
+
+const isPro = Astro.locals.isPro;
+
+const rows = await listTodosForUser(session.user.id);
+const initialTodos: TodoRow[] = rows.map((r) => ({
+  id: r.id,
+  userId: r.userId,
+  title: r.title,
+  category: r.category ?? DEFAULT_TODO_CATEGORY,
+  done: r.done,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
+}));
+---
+
+<BaseLayout title="App · Scribbbles" session={session} isPro={isPro}>
+  <TodoBoard client:load initialTodos={initialTodos} isPro={isPro} />
+</BaseLayout>

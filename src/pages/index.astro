@@ -1,0 +1,32 @@
+---
+import { getSession } from 'auth-astro/server';
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { isSkipAuth } from '@/lib/auth/dev-session';
+
+if (isSkipAuth()) return Astro.redirect('/app');
+
+const session = await getSession(Astro.request);
+if (session) return Astro.redirect('/app');
+---
+
+<BaseLayout title="Scribbbles" session={null}>
+  <section class="space-y-10 text-center">
+    <div class="space-y-4">
+      <h1 class="font-heading text-foreground text-4xl font-semibold tracking-tight sm:text-5xl">
+        scribbbles
+      </h1>
+      <p class="text-muted-foreground text-balance text-lg sm:text-xl">
+        A minimal list for everything you need to remember — nothing you don&apos;t.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <a
+        href="/signin"
+        class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center justify-center rounded-md px-8 text-sm font-medium transition-colors"
+      >
+        Get started
+      </a>
+    </div>
+  </section>
+</BaseLayout>

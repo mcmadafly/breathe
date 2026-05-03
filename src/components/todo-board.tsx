@@ -1,21 +1,58 @@
 import { actions } from 'astro:actions';
+import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import confetti from 'canvas-confetti';
-import { Check, List, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, GripVertical, List, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type MutableRefObject,
+} from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { sortTodoRows } from '@/lib/todo-sort';
 import { cn } from '@/lib/utils';
-import { DEFAULT_TODO_CATEGORY, TODO_CATEGORY_TABS, type TodoCategorySlug } from '@/lib/todo-categories';
-import { FREE_TODO_LIMIT } from '@/lib/todo-limits';
+import {
+  FREE_TODO_LIMIT,
+  TODO_LIST_NAME_MAX_LENGTH,
+  TODO_BODY_MAX_LENGTH,
+  TODO_CONTENT_MAX_LENGTH,
+  TODO_TITLE_MAX_LENGTH,
+} from '@/lib/todo-limits';
+import { mergeTodoContent } from '@/lib/todo-text';
+
+export interface TodoListRow {
+  id: string;
+  userId: string;
+  name: string;
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface TodoRow {
   id: string;
   userId: string;
   title: string;
-  category: string;
+  body: string;
+  listId: string;
+  position: number;
   done: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -23,10 +60,11 @@ export interface TodoRow {
 
 interface Props {
   initialTodos: TodoRow[];
+  initialLists: TodoListRow[];
   isPro: boolean;
 }
 
-type FilterId = 'all' | TodoCategorySlug;
+type FilterId = 'all' | string;
 
 function normalizeRow(raw: unknown): TodoRow {
   const r = raw as Record<string, unknown>;
@@ -34,14 +72,363 @@ function normalizeRow(raw: unknown): TodoRow {
     id: String(r.id),
     userId: String(r.userId),
     title: String(r.title),
-    category: String(r.category ?? DEFAULT_TODO_CATEGORY),
+    body: String(r.body ?? ''),
+    listId: String(r.listId ?? ''),
+    position: Number(r.position ?? 0),
     done: Boolean(r.done),
     createdAt: new Date(r.createdAt as string | number | Date),
     updatedAt: new Date(r.updatedAt as string | number | Date),
   };
 }
 
+function normalizeListRow(raw: unknown): TodoListRow {
+  const r = raw as Record<string, unknown>;
+  return {
+    id: String(r.id),
+    userId: String(r.userId),
+    name: String(r.name),
+    position: Number(r.position ?? 0),
+    createdAt: new Date(r.createdAt as string | number | Date),
+    updatedAt: new Date(r.updatedAt as string | number | Date),
+  };
+}
+
+type TodoLiSharedProps = {
+  row: TodoRow;
+  hasLongTodo: boolean;
+  busy: string | null;
+  editingId: string | null;
+  editText: string;
+  checkboxRefs: React.MutableRefObject<Map<string, HTMLButtonElement>>;
+  skipEditBlurSaveRef: React.MutableRefObject<boolean>;
+  setEditText: (v: string) => void;
+  commitEdit: (id: string) => void | Promise<void>;
+  cancelEditing: () => void;
+  startEdit: (row: TodoRow) => void;
+  onToggle: (id: string, done: boolean) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
+};
+
+function StaticTodoLi(props: TodoLiSharedProps) {
+  const {
+    row,
+    hasLongTodo,
+    busy,
+    editingId,
+    editText,
+    checkboxRefs,
+    skipEditBlurSaveRef,
+    setEditText,
+    commitEdit,
+    cancelEditing,
+    startEdit,
+    onToggle,
+    onDelete,
+  } = props;
+  return (
+    <li
+      className={cn(
+        'group flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+        hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
+        editingId !== row.id && 'cursor-pointer',
+      )}
+      onClick={(e) => {
+        if (busy === row.id || editingId === row.id) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        startEdit(row);
+      }}
+    >
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={row.done}
+        aria-label={row.done ? 'Mark not done' : 'Mark done'}
+        disabled={busy === row.id}
+        ref={(el) => {
+          if (el) checkboxRefs.current.set(row.id, el);
+          else checkboxRefs.current.delete(row.id);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          void onToggle(row.id, !row.done);
+        }}
+        className={cn(
+          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-colors',
+          'disabled:opacity-50',
+          row.done
+            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+            : 'border-neutral-300 bg-transparent dark:border-neutral-500',
+        )}
+      >
+        {row.done ? <Check className="size-2.5 stroke-[3]" strokeLinecap="round" /> : null}
+      </button>
+      <div className="min-w-0 flex-1 py-0.5">
+        {editingId === row.id ? (
+          <div className="flex items-start gap-2">
+            <textarea
+              autoFocus
+              value={editText}
+              maxLength={TODO_CONTENT_MAX_LENGTH}
+              rows={3}
+              onChange={(ev) => setEditText(ev.target.value)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' && !ev.shiftKey) {
+                  ev.preventDefault();
+                  void commitEdit(row.id);
+                }
+                if (ev.key === 'Escape') {
+                  ev.preventDefault();
+                  skipEditBlurSaveRef.current = true;
+                  cancelEditing();
+                }
+              }}
+              onBlur={() => {
+                queueMicrotask(() => {
+                  if (skipEditBlurSaveRef.current) {
+                    skipEditBlurSaveRef.current = false;
+                    return;
+                  }
+                  if (editingId !== row.id) return;
+                  void commitEdit(row.id);
+                });
+              }}
+              className={cn(
+                'field-sizing-content min-h-10 min-w-0 flex-1 resize-y rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-[15px] text-neutral-900 outline-none',
+                'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
+              )}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="shrink-0 rounded-xl"
+              onPointerDown={() => {
+                skipEditBlurSaveRef.current = true;
+              }}
+              onClick={() => {
+                cancelEditing();
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <p
+            className={cn(
+              'break-words text-neutral-800 whitespace-pre-wrap dark:text-neutral-100',
+              hasLongTodo ? 'text-[15px] leading-relaxed' : 'text-sm leading-snug',
+              row.done && 'text-[#8e8e8e] line-through decoration-neutral-400/80 dark:text-neutral-500',
+              !row.done && 'font-normal',
+            )}
+          >
+            {row.title}
+            {row.body ? <span className="text-neutral-500 dark:text-neutral-400">{row.body}</span> : null}
+          </p>
+        )}
+      </div>
+      <div className="relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <Button
+          type="button"
+          variant="ghost"
+          className="size-8 rounded-full text-[#8e8e8e] hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+          aria-label="Delete"
+          disabled={busy === row.id || editingId === row.id}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void onDelete(row.id);
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function SortableTodoLi(props: TodoLiSharedProps) {
+  const {
+    row,
+    hasLongTodo,
+    busy,
+    editingId,
+    editText,
+    checkboxRefs,
+    skipEditBlurSaveRef,
+    setEditText,
+    commitEdit,
+    cancelEditing,
+    startEdit,
+    onToggle,
+    onDelete,
+  } = props;
+  const disabled = editingId === row.id || busy === row.id;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: row.id,
+    disabled,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.88 : undefined,
+  } as CSSProperties;
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+        hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
+        editingId !== row.id && !disabled && 'cursor-pointer',
+      )}
+      onClick={(e) => {
+        if (busy === row.id || editingId === row.id) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        startEdit(row);
+      }}
+    >
+      <button
+        type="button"
+        aria-label={`Reorder (${row.title.slice(0, 40)}${row.title.length > 40 ? '…' : ''})`}
+        className={cn(
+          'touch-none shrink-0 rounded-lg p-1 text-[#8e8e8e] hover:bg-neutral-200/80 hover:text-neutral-700',
+          'dark:hover:bg-white/10 dark:hover:text-neutral-200',
+          disabled ? 'cursor-not-allowed opacity-35' : 'cursor-grab active:cursor-grabbing',
+        )}
+        disabled={disabled}
+        {...attributes}
+        {...listeners}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="size-5" strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={row.done}
+        aria-label={row.done ? 'Mark not done' : 'Mark done'}
+        disabled={busy === row.id}
+        ref={(el) => {
+          if (el) checkboxRefs.current.set(row.id, el);
+          else checkboxRefs.current.delete(row.id);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          void onToggle(row.id, !row.done);
+        }}
+        className={cn(
+          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-colors',
+          'disabled:opacity-50',
+          row.done
+            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+            : 'border-neutral-300 bg-transparent dark:border-neutral-500',
+        )}
+      >
+        {row.done ? <Check className="size-2.5 stroke-[3]" strokeLinecap="round" /> : null}
+      </button>
+      <div className="min-w-0 flex-1 py-0.5">
+        {editingId === row.id ? (
+          <div className="flex items-start gap-2">
+            <textarea
+              autoFocus
+              value={editText}
+              maxLength={TODO_CONTENT_MAX_LENGTH}
+              rows={3}
+              onChange={(ev) => setEditText(ev.target.value)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' && !ev.shiftKey) {
+                  ev.preventDefault();
+                  void commitEdit(row.id);
+                }
+                if (ev.key === 'Escape') {
+                  ev.preventDefault();
+                  skipEditBlurSaveRef.current = true;
+                  cancelEditing();
+                }
+              }}
+              onBlur={() => {
+                queueMicrotask(() => {
+                  if (skipEditBlurSaveRef.current) {
+                    skipEditBlurSaveRef.current = false;
+                    return;
+                  }
+                  if (editingId !== row.id) return;
+                  void commitEdit(row.id);
+                });
+              }}
+              className={cn(
+                'field-sizing-content min-h-10 min-w-0 flex-1 resize-y rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-[15px] text-neutral-900 outline-none',
+                'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
+              )}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="shrink-0 rounded-xl"
+              onPointerDown={() => {
+                skipEditBlurSaveRef.current = true;
+              }}
+              onClick={() => {
+                cancelEditing();
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <p
+            className={cn(
+              'break-words text-neutral-800 whitespace-pre-wrap dark:text-neutral-100',
+              hasLongTodo ? 'text-[15px] leading-relaxed' : 'text-sm leading-snug',
+              row.done && 'text-[#8e8e8e] line-through decoration-neutral-400/80 dark:text-neutral-500',
+              !row.done && 'font-normal',
+            )}
+          >
+            {row.title}
+            {row.body ? <span className="text-neutral-500 dark:text-neutral-400">{row.body}</span> : null}
+          </p>
+        )}
+      </div>
+      <div className="relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <Button
+          type="button"
+          variant="ghost"
+          className="size-8 rounded-full text-[#8e8e8e] hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+          aria-label="Delete"
+          disabled={busy === row.id || editingId === row.id}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void onDelete(row.id);
+          }}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 const accentOrange = 'bg-[#f97316] hover:bg-[#ea580c] dark:bg-[#f97316] dark:hover:bg-[#ea580c]';
+
+/**
+ * Fast polling fallback when SSE is down/reconnecting (multi-instance deploys,
+ * flaky connections). SSE is OPEN → use slow guardrail interval only.
+ * Browser Push API is separate (background/offline subscriptions); SSE is
+ * HTTP server-push for live updates in this session.
+ */
+const LIST_SYNC_VISIBLE_MS = 2_500;
+const LIST_SYNC_HIDDEN_MS = 22_000;
+/** Rare full refresh while SSE is healthy (SSE/todo-sync is same-process only). */
+const LIST_SYNC_SSE_GUARD_VISIBLE_MS = 90_000;
+const LIST_SYNC_SSE_GUARD_HIDDEN_MS = LIST_SYNC_HIDDEN_MS;
+
+const TODO_BROADCAST = 'breathe-todo-sync';
 
 function burstConfettiFromCheckbox(el: HTMLElement) {
   const rect = el.getBoundingClientRect();
@@ -58,23 +445,67 @@ function burstConfettiFromCheckbox(el: HTMLElement) {
   void confetti({ ...base, particleCount: 35, spread: 120, startVelocity: 32, ticks: 320 });
 }
 
-export function TodoBoard({ initialTodos, isPro }: Props) {
+export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   const checkboxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const skipEditBlurSaveRef = useRef(false);
-  const [items, setItems] = useState<TodoRow[]>(initialTodos);
+  const [items, setItems] = useState<TodoRow[]>(() => sortTodoRows([...initialTodos], initialLists));
+  const [lists, setLists] = useState<TodoListRow[]>(initialLists);
+  const listsRef = useRef<TodoListRow[]>(initialLists);
+  listsRef.current = lists;
   const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [filter, setFilter] = useState<FilterId>('all');
   const [listsOpen, setListsOpen] = useState(false);
+  const [listFormOpen, setListFormOpen] = useState(false);
+  const [listFormName, setListFormName] = useState('');
+  const [listFormEditingId, setListFormEditingId] = useState<string | null>(null);
+  const [savingList, setSavingList] = useState(false);
   const listsDrawerRef = useRef<HTMLDivElement>(null);
   const listsStripRef = useRef<HTMLButtonElement>(null);
+  const tabInstanceIdRef = useRef(crypto.randomUUID());
+  const busyRef = useRef(busy);
+  const editingIdRef = useRef(editingId);
+  busyRef.current = busy;
+  editingIdRef.current = editingId;
+
+  const syncFromServer = useCallback(async (opts?: { bypassBusy?: boolean }) => {
+    if (!opts?.bypassBusy && busyRef.current !== null) return;
+    if (!opts?.bypassBusy && editingIdRef.current !== null) return;
+    const [tRes, lRes] = await Promise.all([actions.listTodos({}), actions.listTodoLists({})]);
+    if (tRes.error || !tRes.data) return;
+    const normalizedTodos = tRes.data.map(normalizeRow);
+    const nextLists = !lRes.error && lRes.data ? lRes.data.map(normalizeListRow) : listsRef.current;
+    if (!lRes.error && lRes.data) {
+      setLists(nextLists);
+    }
+    listsRef.current = nextLists;
+    setItems(sortTodoRows(normalizedTodos, nextLists));
+  }, []);
+
+  const notifyOtherClients = useCallback(() => {
+    try {
+      const bc = new BroadcastChannel(TODO_BROADCAST);
+      bc.postMessage({ type: 'todos-changed' as const, from: tabInstanceIdRef.current });
+      bc.close();
+    } catch {
+      /* unsupported or blocked */
+    }
+  }, []);
 
   useEffect(() => {
     if (!isPro) setFilter('all');
   }, [isPro]);
+
+  useEffect(() => {
+    if (filter === 'all') return;
+    if (!lists.some((l) => l.id === filter)) {
+      setFilter('all');
+    }
+  }, [lists, filter]);
 
   useEffect(() => {
     if (!listsOpen) return;
@@ -95,14 +526,149 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     };
   }, [listsOpen]);
 
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(TODO_BROADCAST);
+      bc.onmessage = (ev: MessageEvent<{ type?: string; from?: string }>) => {
+        if (ev.data?.type !== 'todos-changed') return;
+        if (ev.data.from === tabInstanceIdRef.current) return;
+        void syncFromServer({ bypassBusy: true });
+      };
+    } catch {
+      /* no BroadcastChannel */
+    }
+    return () => bc?.close();
+  }, [syncFromServer]);
+
+  useEffect(() => {
+    let intervalId = 0;
+    const sseHealthyRef = { current: false };
+    const es = new EventSource('/api/todos/stream');
+
+    const armPolling = () => {
+      window.clearInterval(intervalId);
+      const visible = document.visibilityState === 'visible';
+      const ms =
+        sseHealthyRef.current && visible
+          ? LIST_SYNC_SSE_GUARD_VISIBLE_MS
+          : sseHealthyRef.current && !visible
+            ? LIST_SYNC_SSE_GUARD_HIDDEN_MS
+            : visible
+              ? LIST_SYNC_VISIBLE_MS
+              : LIST_SYNC_HIDDEN_MS;
+      intervalId = window.setInterval(() => {
+        void syncFromServer();
+      }, ms);
+    };
+
+    es.onopen = () => {
+      sseHealthyRef.current = true;
+      armPolling();
+    };
+    es.onerror = () => {
+      sseHealthyRef.current = false;
+      armPolling();
+    };
+
+    es.onmessage = (ev) => {
+      let msg: { type?: string; todo?: unknown; id?: string };
+      try {
+        msg = JSON.parse(ev.data) as typeof msg;
+      } catch {
+        return;
+      }
+      if (msg.type === 'sync:ready') return;
+      if (msg.type === 'todo:created' && msg.todo) {
+        const row = normalizeRow(msg.todo);
+        setItems((prev) =>
+          prev.some((x) => x.id === row.id)
+            ? prev
+            : sortTodoRows([...prev, row], listsRef.current),
+        );
+        return;
+      }
+      if (msg.type === 'todo:updated' && msg.todo) {
+        const row = normalizeRow(msg.todo);
+        setItems((prev) => {
+          const i = prev.findIndex((x) => x.id === row.id);
+          if (i === -1) return sortTodoRows([...prev, row], listsRef.current);
+          return sortTodoRows(
+            prev.map((x) => (x.id === row.id ? row : x)),
+            listsRef.current,
+          );
+        });
+        return;
+      }
+      if (msg.type === 'todos:reordered') {
+        void syncFromServer({ bypassBusy: true });
+        return;
+      }
+      if (msg.type === 'todo:deleted' && msg.id) {
+        const id = msg.id;
+        setItems((prev) => prev.filter((x) => x.id !== id));
+        setEditingId((e) => (e === id ? null : e));
+      }
+    };
+
+    armPolling();
+    document.addEventListener('visibilitychange', armPolling);
+    return () => {
+      document.removeEventListener('visibilitychange', armPolling);
+      window.clearInterval(intervalId);
+      es.close();
+    };
+  }, [syncFromServer]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') void syncFromServer();
+    }
+    function onFocus() {
+      void syncFromServer();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [syncFromServer]);
+
   const atLimit = !isPro && items.length >= FREE_TODO_LIMIT;
 
   const filteredItems = useMemo(() => {
     if (filter === 'all') return items;
-    return items.filter((t) => t.category === filter);
+    return items.filter((t) => t.listId === filter);
   }, [items, filter]);
 
+  const reorderListId = useMemo(() => {
+    if (filteredItems.length === 0) return null;
+    const ids = new Set(filteredItems.map((t) => t.listId));
+    if (ids.size !== 1) return null;
+    return filteredItems[0]!.listId;
+  }, [filteredItems]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+
+  const tabs = useMemo(() => {
+    return [{ id: 'all' as const, label: 'All' }, ...lists.map((l) => ({ id: l.id, label: l.name }))];
+  }, [lists]);
+
+  const LONG_TITLE_THRESHOLD = 88;
+  const hasLongTodo = useMemo(
+    () => items.some((t) => t.title.length + t.body.length > LONG_TITLE_THRESHOLD),
+    [items],
+  );
+
   const categoriesLocked = !isPro;
+
+  const activeListName = useMemo(() => {
+    if (filter === 'all') return 'All';
+    return lists.find((l) => l.id === filter)?.name ?? 'All';
+  }, [filter, lists]);
 
   function tabButtonClasses(tabId: FilterId) {
     const selected = filter === tabId;
@@ -135,22 +701,42 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     );
   }
 
-  async function onCreate(e: React.FormEvent) {
+  function onComposerTitleChange(raw: string) {
+    if (raw.length <= TODO_TITLE_MAX_LENGTH) {
+      setTitle(raw);
+      return;
+    }
+    setTitle(raw.slice(0, TODO_TITLE_MAX_LENGTH));
+    const extra = raw.slice(TODO_TITLE_MAX_LENGTH);
+    setBody((prev) => (prev + extra).slice(0, TODO_BODY_MAX_LENGTH));
+  }
+
+  async function onCreate(e: FormEvent) {
     e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
+    const merged = mergeTodoContent(title.trim(), body.trim());
+    if (!merged.trim() || busy === 'create') return;
     setBusy('create');
-    const category =
-      isPro && filter !== 'all' ? filter : DEFAULT_TODO_CATEGORY;
-    const res = await actions.createTodo({ title: t, category });
+    const res = await actions.createTodo({
+      title: merged,
+      listId: isPro && filter !== 'all' ? filter : undefined,
+    });
     setBusy(null);
     if (res.error) {
       toast.error(res.error.message);
       return;
     }
-    if (res.data) setItems((prev) => [normalizeRow(res.data), ...prev]);
+    if (res.data) {
+      const row = normalizeRow(res.data);
+      setItems((prev) =>
+        prev.some((x) => x.id === row.id)
+          ? prev
+          : sortTodoRows([...prev, row], listsRef.current),
+      );
+    }
     setTitle('');
+    setBody('');
     setComposerOpen(false);
+    notifyOtherClients();
   }
 
   async function onToggle(id: string, done: boolean) {
@@ -164,6 +750,7 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
       const el = checkboxRefs.current.get(id);
       if (el) burstConfettiFromCheckbox(el);
     }
+    notifyOtherClients();
   }
 
   async function onDelete(id: string) {
@@ -172,6 +759,7 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     setBusy(null);
     if (res.error) return;
     setItems((prev) => prev.filter((x) => x.id !== id));
+    notifyOtherClients();
   }
 
   async function commitEdit(id: string) {
@@ -180,7 +768,8 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
       setEditingId(null);
       return;
     }
-    const prev = items.find((x) => x.id === id)?.title;
+    const prevRow = items.find((x) => x.id === id);
+    const prev = prevRow ? mergeTodoContent(prevRow.title, prevRow.body) : undefined;
     if (prev !== undefined && t === prev) {
       setEditingId(null);
       return;
@@ -192,6 +781,7 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     const row = normalizeRow(res.data);
     setItems((prev) => prev.map((x) => (x.id === id ? row : x)));
     setEditingId(null);
+    notifyOtherClients();
   }
 
   function cancelEditing() {
@@ -200,34 +790,177 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
 
   function startEdit(row: TodoRow) {
     setEditingId(row.id);
-    setEditText(row.title);
+    setEditText(mergeTodoContent(row.title, row.body));
+  }
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      if (!reorderListId) return;
+      const listIdReorder = reorderListId;
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      let orderedIds: string[] | null = null;
+      setItems((prev) => {
+        const slice = prev.filter((t) => t.listId === listIdReorder);
+        const oldIndex = slice.findIndex((t) => t.id === String(active.id));
+        const newIndex = slice.findIndex((t) => t.id === String(over.id));
+        if (oldIndex < 0 || newIndex < 0) return prev;
+        const moved = arrayMove(slice, oldIndex, newIndex);
+        orderedIds = moved.map((t) => t.id);
+        const withPos = moved.map((t, i) => ({ ...t, position: i }));
+        const others = prev.filter((t) => t.listId !== listIdReorder);
+        return sortTodoRows([...others, ...withPos], listsRef.current);
+      });
+      if (!orderedIds) return;
+      const res = await actions.reorderTodos({ listId: listIdReorder, orderedIds });
+      if (res.error) {
+        toast.error(res.error.message);
+        void syncFromServer({ bypassBusy: true });
+        return;
+      }
+      notifyOtherClients();
+    },
+    [reorderListId, notifyOtherClients, syncFromServer],
+  );
+
+  function openCreateListForm() {
+    setListFormEditingId(null);
+    setListFormName('');
+    setListFormOpen(true);
+  }
+
+  function openEditListForm(list: TodoListRow) {
+    setListFormEditingId(list.id);
+    setListFormName(list.name);
+    setListFormOpen(true);
+  }
+
+  async function submitListForm(e: FormEvent) {
+    e.preventDefault();
+    const n = listFormName.trim();
+    if (!n) return;
+    setSavingList(true);
+    if (listFormEditingId) {
+      const res = await actions.updateTodoList({ id: listFormEditingId, name: n });
+      setSavingList(false);
+      if (res.error) {
+        toast.error(res.error.message);
+        return;
+      }
+      if (res.data) {
+        const normalized = normalizeListRow(res.data);
+        setLists((prev) => prev.map((l) => (l.id === listFormEditingId ? normalized : l)));
+      }
+    } else {
+      const res = await actions.createTodoList({ name: n });
+      setSavingList(false);
+      if (res.error) {
+        toast.error(res.error.message);
+        return;
+      }
+      if (res.data) {
+        const row = normalizeListRow(res.data);
+        setLists((prev) => [...prev, row].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)));
+      }
+    }
+    setListFormOpen(false);
+    notifyOtherClients();
+  }
+
+  async function deleteListById(listId: string) {
+    if (!globalThis.confirm('Delete this list? It must be empty first.')) return;
+    setBusy(`list-${listId}`);
+    const res = await actions.deleteTodoList({ id: listId });
+    setBusy(null);
+    if (res.error) {
+      toast.error(res.error.message);
+      return;
+    }
+    setLists((prev) => prev.filter((l) => l.id !== listId));
+    if (filter === listId) setFilter('all');
+    notifyOtherClients();
   }
 
   const sidebarNav = (
-    <nav className="flex flex-col gap-1" aria-label="Categories">
-      {TODO_CATEGORY_TABS.map((tab) => {
-        const selected = filter === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            disabled={categoriesLocked}
-            className={tabButtonClasses(tab.id)}
-            onClick={() => {
-              if (!categoriesLocked) {
-                setFilter(tab.id);
-                setListsOpen(false);
-              }
-            }}
-          >
-            <List className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
-            {tab.label}
-          </button>
-        );
-      })}
-    </nav>
+    <div className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-1" aria-label="Categories">
+        <button
+          key="all"
+          type="button"
+          role="tab"
+          aria-selected={filter === 'all'}
+          disabled={categoriesLocked}
+          className={tabButtonClasses('all')}
+          onClick={() => {
+            if (!categoriesLocked) {
+              setFilter('all');
+              setListsOpen(false);
+            }
+          }}
+        >
+          <List className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+          All
+        </button>
+        {lists.map((list) => (
+          <div key={list.id} className="group/row flex w-full min-w-0 items-center gap-0.5">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={filter === list.id}
+              disabled={categoriesLocked}
+              className={cn(tabButtonClasses(list.id), 'min-w-0 flex-1')}
+              onClick={() => {
+                if (!categoriesLocked) {
+                  setFilter(list.id);
+                  setListsOpen(false);
+                }
+              }}
+            >
+              <List className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+              <span className="truncate">{list.name}</span>
+            </button>
+            <div className="flex shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 [@media(hover:none)]:opacity-100">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 rounded-lg text-[#8e8e8e] hover:text-[#f97316]"
+                aria-label={`Rename ${list.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditListForm(list);
+                }}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 rounded-lg text-[#8e8e8e] hover:text-red-600"
+                aria-label={`Delete ${list.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void deleteListById(list.id);
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </nav>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="mt-1 size-9 rounded-xl text-[#8e8e8e] hover:bg-white/60 hover:text-[#f97316] dark:hover:bg-white/5"
+        aria-label="Add list"
+        onClick={openCreateListForm}
+      >
+        <Plus className="size-5" strokeWidth={2} />
+      </Button>
+    </div>
   );
 
   const mobileCategoryTablist = (
@@ -235,23 +968,31 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
       role="tablist"
       aria-label="Categories"
       aria-disabled={categoriesLocked}
-      className="flex flex-wrap items-end gap-x-8 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
+      className="flex flex-wrap items-end gap-x-6 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
     >
-      {TODO_CATEGORY_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={filter === tab.id}
-            disabled={categoriesLocked}
-            className={tabBarButtonClasses(tab.id)}
-            onClick={() => {
-              if (!categoriesLocked) setFilter(tab.id);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={filter === tab.id}
+          disabled={categoriesLocked}
+          className={tabBarButtonClasses(tab.id)}
+          onClick={() => {
+            if (!categoriesLocked) setFilter(tab.id);
+          }}
+        >
+          {tab.label}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-[#8e8e8e] transition-colors hover:bg-neutral-100 hover:text-[#f97316] dark:hover:bg-white/10 dark:hover:text-[#f97316]"
+        aria-label="Add list"
+        onClick={openCreateListForm}
+      >
+        <Plus className="size-4" strokeWidth={2} />
+      </button>
     </div>
   );
 
@@ -271,7 +1012,9 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
         )}
         onClick={() => setListsOpen((o) => !o)}
       >
-        <span className="select-none [writing-mode:vertical-rl]">Show lists</span>
+        <span className="select-none [writing-mode:vertical-rl]">
+          {activeListName} | show lists
+        </span>
       </button>
       <div
         ref={listsDrawerRef}
@@ -291,133 +1034,51 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
     </div>
   );
 
-  const listSection = (
-    <ul className="space-y-1">
-      {items.length === 0 ? (
+  const baseTodoLiProps: Omit<TodoLiSharedProps, 'row'> = {
+    hasLongTodo,
+    busy,
+    editingId,
+    editText,
+    checkboxRefs,
+    skipEditBlurSaveRef,
+    setEditText,
+    commitEdit,
+    cancelEditing,
+    startEdit,
+    onToggle,
+    onDelete,
+  };
+
+  const listSection =
+    items.length === 0 ? (
+      <ul className="space-y-1">
         <li className="rounded-2xl border border-dashed border-neutral-200 py-8 text-center text-sm text-[#8e8e8e] dark:border-neutral-700 dark:text-neutral-500">
           Nothing here yet. Add a task below.
         </li>
-      ) : filteredItems.length === 0 ? (
+      </ul>
+    ) : filteredItems.length === 0 ? (
+      <ul className="space-y-1">
         <li className="rounded-2xl border border-dashed border-neutral-200 py-8 text-center text-sm text-[#8e8e8e] dark:border-neutral-700 dark:text-neutral-500">
           Nothing in this category.
         </li>
-      ) : (
-        filteredItems.map((row) => (
-          <li
-            key={row.id}
-            className={cn(
-              'group flex min-h-[2.75rem] items-center gap-2.5 rounded-2xl px-2.5 py-1.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
-              editingId !== row.id && 'cursor-pointer',
-            )}
-            onClick={(e) => {
-              if (busy === row.id || editingId === row.id) return;
-              if ((e.target as HTMLElement).closest('button')) return;
-              startEdit(row);
-            }}
-          >
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={row.done}
-              aria-label={row.done ? 'Mark not done' : 'Mark done'}
-              disabled={busy === row.id}
-              ref={(el) => {
-                if (el) checkboxRefs.current.set(row.id, el);
-                else checkboxRefs.current.delete(row.id);
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                void onToggle(row.id, !row.done);
-              }}
-              className={cn(
-                'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-colors',
-                'disabled:opacity-50',
-                row.done
-                  ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
-                  : 'border-neutral-300 bg-transparent dark:border-neutral-500',
-              )}
-            >
-              {row.done ? <Check className="size-2.5 stroke-[3]" strokeLinecap="round" /> : null}
-            </button>
-            <div className="min-w-0 flex-1 py-0.5">
-              {editingId === row.id ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    autoFocus
-                    value={editText}
-                    onChange={(ev) => setEditText(ev.target.value)}
-                    onKeyDown={(ev) => {
-                      if (ev.key === 'Enter') {
-                        ev.preventDefault();
-                        void commitEdit(row.id);
-                      }
-                      if (ev.key === 'Escape') {
-                        ev.preventDefault();
-                        skipEditBlurSaveRef.current = true;
-                        cancelEditing();
-                      }
-                    }}
-                    onBlur={() => {
-                      queueMicrotask(() => {
-                        if (skipEditBlurSaveRef.current) {
-                          skipEditBlurSaveRef.current = false;
-                          return;
-                        }
-                        if (editingId !== row.id) return;
-                        void commitEdit(row.id);
-                      });
-                    }}
-                    className={cn(
-                      'h-10 min-w-0 flex-1 rounded-xl border-neutral-200 bg-[#f7f7f7] dark:border-neutral-600 dark:bg-white/5',
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0 rounded-xl"
-                    onPointerDown={() => {
-                      skipEditBlurSaveRef.current = true;
-                    }}
-                    onClick={() => {
-                      cancelEditing();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <p
-                  className={cn(
-                    'text-[15px] leading-relaxed text-neutral-800 dark:text-neutral-100',
-                    row.done && 'text-[#8e8e8e] line-through decoration-neutral-400/80 dark:text-neutral-500',
-                    !row.done && 'font-normal',
-                  )}
-                >
-                  {row.title}
-                </p>
-              )}
-            </div>
-            <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 sm:opacity-100">
-              <Button
-                type="button"
-                variant="ghost"
-                className="size-8 rounded-full text-[#8e8e8e] hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
-                aria-label="Delete"
-                disabled={busy === row.id || editingId === row.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void onDelete(row.id);
-                }}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          </li>
-        ))
-      )}
-    </ul>
-  );
+      </ul>
+    ) : reorderListId ? (
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={filteredItems.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+          <ul className="space-y-1">
+            {filteredItems.map((row) => (
+              <SortableTodoLi key={row.id} row={row} {...baseTodoLiProps} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+    ) : (
+      <ul className="space-y-1">
+        {filteredItems.map((row) => (
+          <StaticTodoLi key={row.id} row={row} {...baseTodoLiProps} />
+        ))}
+      </ul>
+    );
 
   const formOrUpgrade = atLimit ? (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200/80 bg-orange-50/90 px-3 py-2 dark:border-orange-900/45 dark:bg-orange-950/35">
@@ -431,40 +1092,71 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
   ) : (
     <form
       onSubmit={onCreate}
-      className="flex items-center gap-2"
+      className={cn('flex gap-2', composerOpen ? 'items-end' : 'items-center')}
       onClick={() => setComposerOpen(true)}
     >
-      <div className={cn('relative min-w-0 flex-1', composerOpen && 'h-10')}>
-        <Label htmlFor="new-todo" className="sr-only">
-          New item
-        </Label>
-        <Input
-          id="new-todo"
-          name="title"
-          value={title}
-          onChange={(ev) => setTitle(ev.target.value)}
-          onFocus={() => setComposerOpen(true)}
-          onBlur={() => {
-            if (!title.trim()) setComposerOpen(false);
-          }}
-          placeholder="Add a task…"
-          autoComplete="off"
-          className={cn(
-            'box-border appearance-none py-0 leading-none',
-            composerOpen ? 'h-full min-h-0' : 'h-10',
-            'rounded-xl border border-transparent px-4 text-[15px] text-neutral-900',
-            'focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:border-transparent dark:focus-visible:ring-white/15',
-            composerOpen
-              ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
-              : 'bg-transparent shadow-none dark:bg-transparent',
-            'placeholder:text-[#8e8e8e]',
-          )}
-        />
+      <div className={cn('relative min-w-0 flex-1', composerOpen ? 'min-h-10' : 'h-10')}>
+        <div className={cn('flex min-w-0 flex-col gap-2', !composerOpen && 'h-10 justify-center')}>
+          <div>
+            <Label htmlFor="new-todo" className="sr-only">
+              New item
+            </Label>
+            <textarea
+              id="new-todo"
+              name="title"
+              value={title}
+              onChange={(ev) => onComposerTitleChange(ev.target.value)}
+              onFocus={() => setComposerOpen(true)}
+              onBlur={() => {
+                if (!title.trim() && !body.trim()) setComposerOpen(false);
+              }}
+              placeholder="Add a task…"
+              autoComplete="off"
+              rows={composerOpen ? 3 : 1}
+              className={cn(
+                'field-sizing-content box-border w-full resize-y rounded-xl border border-transparent px-4 text-[15px] text-neutral-900 outline-none',
+                composerOpen ? 'min-h-10 py-2.5' : 'h-10 py-0 leading-[2.5rem]',
+                'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:ring-white/15',
+                composerOpen
+                  ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
+                  : 'bg-transparent shadow-none dark:bg-transparent',
+                'placeholder:text-[#8e8e8e]',
+              )}
+            />
+          </div>
+          {composerOpen && (title.length >= TODO_TITLE_MAX_LENGTH || body.length > 0) ? (
+            <div className="min-w-0">
+              <Label
+                htmlFor="new-todo-detail"
+                className="mb-1.5 block text-xs font-medium text-[#f97316] dark:text-[#f97316]"
+              >
+                More detail
+              </Label>
+              <textarea
+                id="new-todo-detail"
+                name="body"
+                value={body}
+                onChange={(ev) => setBody(ev.target.value.slice(0, TODO_BODY_MAX_LENGTH))}
+                onFocus={() => setComposerOpen(true)}
+                placeholder="Continuation (overflow past the first 256 characters)…"
+                autoComplete="off"
+                rows={3}
+                maxLength={TODO_BODY_MAX_LENGTH}
+                className={cn(
+                  'field-sizing-content box-border min-h-[2.75rem] w-full resize-y rounded-xl border border-transparent px-4 py-2.5 text-[15px] text-neutral-900 outline-none',
+                  'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]',
+                  'focus-visible:ring-2 focus-visible:ring-[#f97316]/25 dark:text-white',
+                  'placeholder:text-[#8e8e8e]',
+                )}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
       {composerOpen ? (
         <Button
           type="submit"
-          disabled={busy === 'create' || !title.trim()}
+          disabled={busy === 'create' || !(title.trim() || body.trim())}
           className={cn(
             'box-border h-[38px] max-h-[38px] min-h-[38px] shrink-0 rounded-xl border border-transparent px-4 py-0 text-[15px] font-semibold leading-none text-white shadow-md shadow-orange-900/25',
             accentOrange,
@@ -477,30 +1169,85 @@ export function TodoBoard({ initialTodos, isPro }: Props) {
   );
 
   return (
-    <div className="flex flex-row items-stretch gap-2 sm:gap-2.5">
-      {listsDrawer}
+    <>
       <div
         className={cn(
-          'min-w-0 flex-1 rounded-[1.75rem] p-2 sm:p-2.5',
-          'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
-          'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
+          'mx-auto flex w-full flex-row items-stretch gap-2 transition-[max-width] duration-300 ease-out sm:gap-2.5',
+          hasLongTodo ? 'max-w-3xl' : 'max-w-md',
         )}
       >
+        {listsDrawer}
         <div
           className={cn(
-            'flex min-h-0 flex-1 flex-col gap-3 rounded-[1.25rem] border px-4 pb-4 pt-4',
-            'border-black/[0.06] bg-white shadow-sm',
-            'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
+            'min-w-0 flex-1 rounded-[1.75rem] p-2 sm:p-2.5',
+            'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
+            'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
           )}
         >
-          <div className="lg:hidden -mx-4 -mt-4 mb-1 px-4 pt-4">
-            {mobileCategoryTablist}
-          </div>
-          {listSection}
+          <div
+            className={cn(
+              'flex min-h-0 flex-1 flex-col gap-3 rounded-[1.25rem] border px-4 pb-4 pt-4',
+              'border-black/[0.06] bg-white shadow-sm',
+              'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
+            )}
+          >
+            <div className="lg:hidden -mx-4 -mt-4 mb-1 px-4 pt-4">{mobileCategoryTablist}</div>
+            {listSection}
 
-          {formOrUpgrade}
+            {formOrUpgrade}
+          </div>
         </div>
       </div>
-    </div>
+
+      {listFormOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={() => !savingList && setListFormOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-labelledby="list-form-title"
+            aria-modal="true"
+            className="bg-background w-full max-w-sm rounded-2xl border p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="list-form-title" className="text-foreground text-sm font-semibold tracking-tight">
+              {listFormEditingId ? 'Rename list' : 'New list'}
+            </h2>
+            <form onSubmit={submitListForm} className="mt-3 space-y-3">
+              <Input
+                value={listFormName}
+                onChange={(ev) => setListFormName(ev.target.value)}
+                maxLength={TODO_LIST_NAME_MAX_LENGTH}
+                placeholder="List name"
+                autoComplete="off"
+                autoFocus
+                className="rounded-xl"
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={savingList}
+                  onClick={() => setListFormOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={savingList || !listFormName.trim()}
+                  className={cn('font-semibold text-white', accentOrange)}
+                >
+                  Save
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

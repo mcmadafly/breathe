@@ -8,7 +8,7 @@ export function HomeBreatheTitle() {
   return (
     <h1
       className={cn(
-        'font-logo text-foreground inline-block text-5xl font-thin leading-none tracking-tight [font-variation-settings:"wght"_240] sm:text-6xl md:text-7xl',
+        'font-logo text-foreground -translate-y-px inline-block text-5xl font-thin leading-none tracking-tight [font-variation-settings:"wght"_240] sm:text-6xl md:text-7xl',
         breathePulse && 'breathe-logo-pulse',
       )}
     >

@@ -16,3 +16,6 @@ const client = createClient({
 });
 
 export const db = drizzle(client, { schema });
+
+/** Direct client for parameterized SQL when Drizzle schema is ahead of the live DB. */
+export const libsqlClient = client;

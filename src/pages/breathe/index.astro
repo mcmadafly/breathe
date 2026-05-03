@@ -1,0 +1,39 @@
+---
+import { TodoBoard, type TodoListRow, type TodoRow } from '@/components/todo-board';
+import { listTodoListsForUser } from '@/lib/db/todo-lists';
+import { listTodosForUser } from '@/lib/db/todos';
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const session = Astro.locals.session;
+if (!session?.user?.id) return Astro.redirect('/sign-in');
+
+const isPro = Astro.locals.isPro;
+
+const listRows = await listTodoListsForUser(session.user.id);
+const initialLists: TodoListRow[] = listRows.map((r) => ({
+  id: r.id,
+  userId: r.userId,
+  name: r.name,
+  position: r.position,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
+}));
+
+const rows = await listTodosForUser(session.user.id);
+const initialTodos: TodoRow[] = rows.map((r) => ({
+  id: r.id,
+  userId: r.userId,
+  title: r.title,
+  body: r.body ?? '',
+  listId: r.listId ?? '',
+  position: r.position ?? 0,
+  done: r.done,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
+}));
+---
+
+<BaseLayout title="Breathe" session={session} isPro={isPro}>
+  <TodoBoard client:load initialTodos={initialTodos} initialLists={initialLists} isPro={isPro} />
+</BaseLayout>

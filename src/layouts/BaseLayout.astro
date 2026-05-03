@@ -19,7 +19,7 @@ interface Props {
 const { title = 'Breathe', session = null, isPro, showHeader = true } = Astro.props;
 
 const skipAuth = import.meta.env.SKIP_AUTH === 'true';
-const homeHref = skipAuth ? '/app' : session?.user ? '/app' : '/';
+const homeHref = skipAuth ? '/breathe' : session?.user ? '/breathe' : '/';
 const showUpgrade = isPro === false;
 ---
 

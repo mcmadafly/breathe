@@ -4,10 +4,10 @@ import { SignUp } from '@clerk/astro/components';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { isSkipAuth } from '@/lib/auth/dev-session';
 
-if (isSkipAuth()) return Astro.redirect('/app');
+if (isSkipAuth()) return Astro.redirect('/breathe');
 
 const { userId } = Astro.locals.auth();
-if (userId) return Astro.redirect('/app');
+if (userId) return Astro.redirect('/breathe');
 ---
 
 <BaseLayout title="Sign up · Breathe" session={null}>

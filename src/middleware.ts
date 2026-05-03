@@ -7,9 +7,10 @@ import { ensureUser } from '@/lib/auth/ensure-user';
 import { getDevSession, isForcePro, isSkipAuth } from '@/lib/auth/dev-session';
 import type { AppSession } from '@/lib/auth/session';
 import { db } from '@/lib/db';
+import { ensureTodoListsAndMigrate } from '@/lib/db/todo-lists';
 import { users } from '@/lib/db/schema';
 
-const isProtectedRoute = createRouteMatcher(['/app(.*)', '/upgrade(.*)']);
+const isProtectedRoute = createRouteMatcher(['/breathe(.*)', '/upgrade(.*)']);
 
 function clerkUserToSession(user: User): AppSession {
   const email =
@@ -51,11 +52,14 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
 
   if (isSkipAuth()) {
     if (pathname === '/' || pathname === '/sign-in' || pathname === '/sign-up') {
-      return context.redirect('/app');
+      return context.redirect('/breathe');
     }
     const session = getDevSession();
     context.locals.session = session;
     await ensureUser(session);
+    if (session.user?.id) {
+      await ensureTodoListsAndMigrate(session.user.id);
+    }
     await refreshProStatus(context);
     return next();
   }
@@ -75,6 +79,9 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       };
     }
     await ensureUser(context.locals.session);
+    if (context.locals.session?.user?.id) {
+      await ensureTodoListsAndMigrate(context.locals.session.user.id);
+    }
   }
 
   await refreshProStatus(context);

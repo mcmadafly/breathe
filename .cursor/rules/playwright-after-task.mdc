@@ -1,0 +1,15 @@
+---
+description: After finishing a task, run Playwright e2e/screenshots and review output
+alwaysApply: true
+---
+
+# Playwright verification after each task
+
+When a coding task is **substantively complete** (UI, routes, auth, or anything that can affect what ships in the browser):
+
+1. Run **`npm run test:e2e`** from the repo root. It starts Astro on the Playwright port (default **127.0.0.1:4378** per `playwright.config.ts`) with **`SKIP_AUTH=true`** so runs do not need Clerk keys; it captures full-page screenshots under `test-results/screens/`.
+2. If tests fail, fix the app or tests before considering the task done. Use **`npx playwright show-report`** if you need the HTML report.
+3. For UI changes, briefly **inspect the new PNGs** in `test-results/screens/` (or failure artifacts in `test-results/`) to confirm layout/regressions, not only green CI.
+4. Do **not** skip this to save time unless the user explicitly says the change is non-UI and out of scope (e.g. comment-only).
+
+Optional: `npm run test:e2e:ui` for interactive debugging.

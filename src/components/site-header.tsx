@@ -122,7 +122,7 @@ export function SiteHeader({ homeHref, showUpgrade, skipAuth, userName, userEmai
             <a
               href={homeHref}
               className={cn(
-                'font-logo inline-block shrink-0 text-xl font-thin leading-none tracking-tight text-foreground [font-variation-settings:"wght"_240] outline-none',
+                'font-logo -translate-y-px inline-block shrink-0 text-xl font-thin leading-none tracking-tight text-foreground [font-variation-settings:"wght"_240] outline-none',
                 'hover:opacity-90 focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 md:text-2xl',
                 breathePulse && 'breathe-logo-pulse',
               )}

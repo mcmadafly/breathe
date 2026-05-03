@@ -3,10 +3,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { HomeBreatheTitle } from '@/components/home-breathe-title';
 import { isSkipAuth } from '@/lib/auth/dev-session';
 
-if (isSkipAuth()) return Astro.redirect('/app');
+if (isSkipAuth()) return Astro.redirect('/breathe');
 
 const { userId } = Astro.locals.auth();
-if (userId) return Astro.redirect('/app');
+if (userId) return Astro.redirect('/breathe');
 ---
 
 <BaseLayout title="Breathe" session={null} showHeader={false}>

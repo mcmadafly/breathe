@@ -1,0 +1,36 @@
+# Deploys the Astro Cloudflare Pages bundle (`dist/cf-pages`) on every push to `main`.
+# Production DB, Clerk, Stripe, etc. should be set on the Cloudflare Pages project for runtime;
+# this workflow only needs enough env for `astro build` to bundle (Turso defaults to `:memory:` in CI when the secret is unset).
+
+name: Deploy Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Empty / missing secret → in-memory DB so `npm run build:pages` can bundle without a live Turso URL.
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL != '' && secrets.TURSO_DATABASE_URL || ':memory:' }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build:pages
+
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler pages deploy dist/cf-pages --project-name spirare

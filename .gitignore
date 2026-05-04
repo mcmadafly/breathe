@@ -31,5 +31,8 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# Cloudflare Wrangler local state
+.wrangler/
+
 # clerk configuration (can include secrets)
 /.clerk/

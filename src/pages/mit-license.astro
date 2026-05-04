@@ -1,11 +1,7 @@
 ---
-import fs from 'node:fs';
-import path from 'node:path';
+import licenseText from '../../LICENSE?raw';
 
 import BaseLayout from '../layouts/BaseLayout.astro';
-
-const licensePath = path.join(process.cwd(), 'LICENSE');
-const licenseText = fs.readFileSync(licensePath, 'utf8');
 ---
 
 <BaseLayout title="MIT License · Breathe">

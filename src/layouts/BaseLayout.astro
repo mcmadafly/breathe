@@ -14,9 +14,11 @@ interface Props {
   isPro?: boolean;
   /** When `false`, hide the sticky site header (e.g. marketing home). */
   showHeader?: boolean;
+  /** Wider main column for dense UIs (e.g. todo board + sidebar). */
+  wideContent?: boolean;
 }
 
-const { title = 'Breathe', session = null, isPro, showHeader = true } = Astro.props;
+const { title = 'Breathe', session = null, isPro, showHeader = true, wideContent = false } = Astro.props;
 
 const skipAuth = import.meta.env.SKIP_AUTH === 'true';
 const homeHref = skipAuth ? '/breathe' : session?.user ? '/breathe' : '/';
@@ -67,6 +69,7 @@ const showUpgrade = isPro === false;
           homeHref={homeHref}
           showUpgrade={showUpgrade}
           skipAuth={skipAuth}
+          wideLayout={wideContent}
           userName={session?.user?.name ?? undefined}
           userEmail={session?.user?.email ?? undefined}
           userImage={session?.user?.image ?? undefined}
@@ -75,7 +78,8 @@ const showUpgrade = isPro === false;
     ) : null}
     <main
       class:list={[
-        'mx-auto w-full max-w-3xl flex-1 px-3',
+        'mx-auto w-full flex-1 px-3',
+        wideContent ? 'max-w-3xl md:max-w-4xl lg:max-w-5xl' : 'max-w-3xl',
         showHeader ? 'py-5 sm:py-6' : 'flex flex-col items-center justify-center py-10 sm:py-12',
       ]}
     >

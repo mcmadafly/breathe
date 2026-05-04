@@ -1,37 +1,15 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { UpgradeProButton } from '@/components/upgrade-pro-button';
+import { UpgradePlans } from '@/components/upgrade-plans';
+import { isStripeBillingConfigured } from '@/lib/stripe/billing';
 
 const session = Astro.locals.session;
 if (!session?.user?.id) return Astro.redirect('/sign-in');
 
 const isPro = Astro.locals.isPro;
+const stripeBillingConfigured = isStripeBillingConfigured();
 ---
 
-<BaseLayout title="Upgrade · Breathe" session={session} isPro={isPro}>
-  <div class="text-muted-foreground mx-auto max-w-md space-y-6 text-center text-sm">
-    {
-      isPro ? (
-        <>
-          <p class="text-foreground text-base font-medium">You&apos;re on Pro</p>
-          <p>Categories and unlimited items are enabled.</p>
-          <p>
-            <a href="/breathe" class="text-foreground font-medium underline underline-offset-4">
-              Back to list
-            </a>
-          </p>
-        </>
-      ) : (
-        <>
-          <p class="text-foreground text-base font-medium">Unlock Pro (demo)</p>
-          <p>
-            Turn on Pro in this demo to filter by category and add more than three items.
-          </p>
-          <div class="flex justify-center pt-2">
-            <UpgradeProButton client:load />
-          </div>
-        </>
-      )
-    }
-  </div>
+<BaseLayout title="Upgrade · Breathe" session={session} isPro={isPro} wideContent>
+  <UpgradePlans client:load isPro={isPro} stripeBillingConfigured={stripeBillingConfigured} />
 </BaseLayout>

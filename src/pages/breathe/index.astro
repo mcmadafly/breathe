@@ -34,6 +34,6 @@ const initialTodos: TodoRow[] = rows.map((r) => ({
 }));
 ---
 
-<BaseLayout title="Breathe" session={session} isPro={isPro}>
+<BaseLayout title="Breathe" session={session} isPro={isPro} wideContent>
   <TodoBoard client:load initialTodos={initialTodos} initialLists={initialLists} isPro={isPro} />
 </BaseLayout>

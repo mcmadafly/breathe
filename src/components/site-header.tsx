@@ -30,6 +30,8 @@ interface Props {
   homeHref: string;
   showUpgrade: boolean;
   skipAuth: boolean;
+  /** Match wider `main` on boards (e.g. /breathe). */
+  wideLayout?: boolean;
   userName?: string | null;
   userEmail?: string | null;
   userImage?: string | null;
@@ -48,7 +50,15 @@ function useDarkModeFlag() {
   return [dark, setDark] as const;
 }
 
-export function SiteHeader({ homeHref, showUpgrade, skipAuth, userName, userEmail, userImage }: Props) {
+export function SiteHeader({
+  homeHref,
+  showUpgrade,
+  skipAuth,
+  wideLayout = false,
+  userName,
+  userEmail,
+  userImage,
+}: Props) {
   const [menuDark, setMenuDark] = useDarkModeFlag();
   const breathePulse = useBreathingWordmark();
 
@@ -69,7 +79,8 @@ export function SiteHeader({ homeHref, showUpgrade, skipAuth, userName, userEmai
   return (
     <div
       className={cn(
-        'mx-auto grid h-14 max-w-3xl grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-1 px-3',
+        'mx-auto grid h-14 w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-1 px-3',
+        wideLayout ? 'max-w-3xl md:max-w-4xl lg:max-w-5xl' : 'max-w-3xl',
         'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4',
       )}
     >
@@ -122,16 +133,24 @@ export function SiteHeader({ homeHref, showUpgrade, skipAuth, userName, userEmai
             <a
               href={homeHref}
               className={cn(
-                'font-logo -translate-y-px inline-block shrink-0 text-xl font-thin leading-none tracking-tight text-foreground [font-variation-settings:"wght"_240] outline-none',
+                'group/logo relative inline-grid place-items-center font-logo -translate-y-px shrink-0 text-xl font-thin leading-none tracking-tight text-foreground [font-variation-settings:"wght"_240] outline-none',
                 'hover:opacity-90 focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 md:text-2xl',
                 breathePulse && 'breathe-logo-pulse',
               )}
             >
-              Breathe
+              <span className="col-start-1 row-start-1 transition-opacity duration-200 group-hover/logo:opacity-0">
+                Breathe
+              </span>
+              <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-200 group-hover/logo:opacity-100">
+                Spirare
+              </span>
             </a>
           </HoverCardTrigger>
           <HoverCardContent align="center" className="w-[min(calc(100vw-2rem),20rem)]" side="bottom">
-            <p className="text-foreground text-sm font-medium tracking-tight">Why Breathe</p>
+            <p className="text-muted-foreground text-center text-xs leading-relaxed tracking-tight">
+              Spirare is a Latin verb meaning &quot;to breathe,&quot;
+            </p>
+            <p className="text-foreground mt-3 text-sm font-medium tracking-tight">Why Breathe</p>
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
               Breathe is a quiet surface for what&apos;s next—capture tasks in a moment and keep one clear list without
               dashboards or clutter.

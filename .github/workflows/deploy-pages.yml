@@ -33,4 +33,7 @@ jobs:
       - run: npm run build:pages
 
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler pages deploy dist/cf-pages --project-name spirare
+        run: |
+          rm -rf .wrangler
+          cd dist/cf-pages
+          npx wrangler pages deploy .

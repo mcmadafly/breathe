@@ -13,7 +13,9 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "deploy": "astro build && wrangler deploy",
+    "build:pages": "astro build && node scripts/cloudflare-pages-bundle.mjs",
+    "deploy": "npm run build:pages && rm -rf .wrangler && (cd dist/cf-pages && wrangler pages deploy .)",
+    "deploy:worker": "astro build && wrangler deploy",
     "preview": "astro preview",
     "preview:worker": "wrangler dev",
     "astro": "astro",

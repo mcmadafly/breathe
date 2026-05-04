@@ -36,7 +36,10 @@ import {
   TODO_CONTENT_MAX_LENGTH,
   TODO_TITLE_MAX_LENGTH,
 } from '@/lib/todo-limits';
-import { mergeTodoContent } from '@/lib/todo-text';
+import { mergeTodoContent, splitTodoContent } from '@/lib/todo-text';
+
+/** Left rail for the drag handle; `-ml-10` outdents so the row pill lines up with category tabs. */
+const TODO_ROW_GUTTER_CLASS = 'flex w-10 shrink-0 justify-end pr-2 -ml-10';
 
 export interface TodoListRow {
   id: string;
@@ -183,7 +186,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   return (
     <div className="min-w-0 flex-1">
       {editingId === row.id ? (
-        <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <textarea
             autoFocus
             value={editText}
@@ -202,17 +205,15 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
               }
             }}
             onBlur={() => {
-              queueMicrotask(() => {
-                if (skipEditBlurSaveRef.current) {
-                  skipEditBlurSaveRef.current = false;
-                  return;
-                }
-                if (editingId !== row.id) return;
-                void commitEdit(row.id);
-              });
+              if (skipEditBlurSaveRef.current) {
+                skipEditBlurSaveRef.current = false;
+                return;
+              }
+              if (editingId !== row.id) return;
+              void commitEdit(row.id);
             }}
             className={cn(
-              'field-sizing-content min-h-10 min-w-0 flex-1 resize-y rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-[15px] text-neutral-900 outline-none',
+              'field-sizing-content min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-[15px] text-neutral-900 outline-none',
               'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
             )}
           />
@@ -295,15 +296,16 @@ function StaticTodoLi(props: TodoLiSharedProps) {
     onDelete,
   } = props;
   const canExpand = todoRowCanExpand(row);
+  const editing = editingId === row.id;
   return (
     <li
-      className={cn('group flex gap-2', expanded ? 'items-start' : 'items-center')}
+      className={cn('group flex gap-0', !expanded || editing ? 'items-center' : 'items-start')}
     >
-      <div className="w-8 shrink-0" aria-hidden />
+      <div className={cn(TODO_ROW_GUTTER_CLASS, 'pointer-events-none')} aria-hidden />
       <div
         className={cn(
-          'flex min-w-0 flex-1 gap-2.5 rounded-2xl px-2.5 py-1.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
-          expanded ? 'items-start' : 'items-center',
+          'flex min-w-0 flex-1 gap-2.5 rounded-2xl py-1.5 pl-2 pr-2.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+          !expanded || editing ? 'items-center' : 'items-start',
           hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
           editingId !== row.id && (!canExpand || expanded) && 'cursor-pointer',
         )}
@@ -332,10 +334,13 @@ function StaticTodoLi(props: TodoLiSharedProps) {
           void onToggle(row.id, !row.done);
         }}
         className={cn(
-          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-colors',
+          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
           row.done
-            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+            ? cn(
+                'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900',
+                '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100',
+              )
             : 'border-neutral-300 bg-transparent dark:border-neutral-500',
         )}
       >
@@ -356,13 +361,17 @@ function StaticTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          expanded && 'pt-0.5',
+          expanded && !editing && 'pt-0.5',
         )}
       >
         <Button
           type="button"
           variant="ghost"
-          className="size-8 rounded-full text-[#8e8e8e] hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+          className={cn(
+            'size-8 rounded-full text-[#8e8e8e] transition-opacity hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400',
+            '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:hover:opacity-100',
+            '[@media(hover:none)]:opacity-100 focus-visible:opacity-100',
+          )}
           aria-label="Delete"
           disabled={busy === row.id || editingId === row.id}
           onPointerDown={(e) => e.stopPropagation()}
@@ -398,10 +407,14 @@ function SortableTodoLi(props: TodoLiSharedProps) {
     onDelete,
   } = props;
   const disabled = editingId === row.id || busy === row.id;
+  const editing = editingId === row.id;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled,
   });
+  const { onPointerDown: onPointerDownSortable, ...sortableAttributesRest } = {
+    ...(listeners ?? {}),
+  } as NonNullable<typeof listeners>;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -414,27 +427,30 @@ function SortableTodoLi(props: TodoLiSharedProps) {
     <li
       ref={setNodeRef}
       style={style}
-      className={cn('group flex gap-2', expanded ? 'items-start' : 'items-center')}
+      className={cn('group flex gap-0', !expanded || editing ? 'items-center' : 'items-start')}
     >
       <div
         className={cn(
-          'flex w-8 shrink-0 flex-col items-center',
-          expanded ? 'justify-start pt-0.5' : 'justify-center',
+          TODO_ROW_GUTTER_CLASS,
+          expanded && !editing ? 'self-start pt-0.5' : 'items-center',
         )}
       >
         <button
           type="button"
           aria-label={`Reorder (${row.title.slice(0, 40)}${row.title.length > 40 ? '…' : ''})`}
           className={cn(
-            'touch-none flex size-8 shrink-0 items-center justify-center rounded-lg text-[#8e8e8e]',
-            'hover:bg-neutral-200/80 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-neutral-200',
-            'transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100',
+            'touch-none flex size-8 shrink-0 -translate-x-1.5 items-center justify-center rounded-lg text-[#8e8e8e]',
+            'transition-opacity hover:text-neutral-600 dark:hover:text-neutral-300',
+            '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100',
             disabled ? 'cursor-not-allowed opacity-35' : 'cursor-grab active:cursor-grabbing',
           )}
           disabled={disabled}
           {...attributes}
-          {...listeners}
-          onPointerDown={(e) => e.stopPropagation()}
+          {...sortableAttributesRest}
+          onPointerDown={(e) => {
+            onPointerDownSortable?.(e);
+            e.stopPropagation();
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="size-4" strokeWidth={1.75} />
@@ -442,8 +458,8 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       </div>
       <div
         className={cn(
-          'flex min-w-0 flex-1 gap-2.5 rounded-2xl px-2.5 py-1.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
-          expanded ? 'items-start' : 'items-center',
+          'flex min-w-0 flex-1 gap-2.5 rounded-2xl py-1.5 pl-2 pr-2.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+          !expanded || editing ? 'items-center' : 'items-start',
           hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
           editingId !== row.id &&
             !disabled &&
@@ -475,10 +491,13 @@ function SortableTodoLi(props: TodoLiSharedProps) {
           void onToggle(row.id, !row.done);
         }}
         className={cn(
-          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-colors',
+          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
           row.done
-            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+            ? cn(
+                'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900',
+                '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100',
+              )
             : 'border-neutral-300 bg-transparent dark:border-neutral-500',
         )}
       >
@@ -499,13 +518,17 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          expanded && 'pt-0.5',
+          expanded && !editing && 'pt-0.5',
         )}
       >
         <Button
           type="button"
           variant="ghost"
-          className="size-8 rounded-full text-[#8e8e8e] hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+          className={cn(
+            'size-8 rounded-full text-[#8e8e8e] transition-opacity hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400',
+            '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:hover:opacity-100',
+            '[@media(hover:none)]:opacity-100 focus-visible:opacity-100',
+          )}
           aria-label="Delete"
           disabled={busy === row.id || editingId === row.id}
           onPointerDown={(e) => e.stopPropagation()}
@@ -896,16 +919,28 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   }
 
   async function onToggle(id: string, done: boolean) {
-    setBusy(id);
+    const snapshot = items.find((x) => x.id === id);
+    if (!snapshot) return;
+
+    setItems((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, done, updatedAt: new Date() } : x)),
+    );
+
+    if (done) {
+      queueMicrotask(() => {
+        const el = checkboxRefs.current.get(id);
+        if (el) burstConfettiFromCheckbox(el);
+      });
+    }
+
     const res = await actions.toggleTodo({ id, done });
-    setBusy(null);
-    if (res.error || !res.data) return;
+    if (res.error || !res.data) {
+      setItems((prev) => prev.map((x) => (x.id === id ? snapshot : x)));
+      if (res.error) toast.error(res.error.message);
+      return;
+    }
     const row = normalizeRow(res.data);
     setItems((prev) => prev.map((x) => (x.id === id ? row : x)));
-    if (done) {
-      const el = checkboxRefs.current.get(id);
-      if (el) burstConfettiFromCheckbox(el);
-    }
     notifyOtherClients();
   }
 
@@ -936,13 +971,23 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
       setEditingId(null);
       return;
     }
+    const { title: nextTitle, body: nextBody } = splitTodoContent(t);
+    setEditingId(null);
+    if (prevRow) {
+      setItems((p) => p.map((x) => (x.id === id ? { ...x, title: nextTitle, body: nextBody } : x)));
+    }
     setBusy(id);
     const res = await actions.updateTodoTitle({ id, title: t });
     setBusy(null);
-    if (res.error || !res.data) return;
+    if (res.error || !res.data) {
+      if (prevRow) {
+        setItems((p) => p.map((x) => (x.id === id ? prevRow : x)));
+      }
+      if (res.error) toast.error(res.error.message);
+      return;
+    }
     const row = normalizeRow(res.data);
-    setItems((prev) => prev.map((x) => (x.id === id ? row : x)));
-    setEditingId(null);
+    setItems((p) => p.map((x) => (x.id === id ? row : x)));
     notifyOtherClients();
   }
 
@@ -1139,7 +1184,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
       role="tablist"
       aria-label="Categories"
       aria-disabled={categoriesLocked}
-      className="flex flex-wrap items-end gap-x-6 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
+      className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-neutral-200/80 dark:border-neutral-700/80"
     >
       {tabs.map((tab) => (
         <button
@@ -1158,7 +1203,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
       ))}
       <button
         type="button"
-        className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-[#8e8e8e] transition-colors hover:bg-neutral-100 hover:text-[#f97316] dark:hover:bg-white/10 dark:hover:text-[#f97316]"
+        className="-mb-px box-border inline-flex min-w-8 shrink-0 items-center justify-center rounded-lg border-b-[3px] border-transparent pb-2.5 pt-1 text-[#8e8e8e] transition-colors hover:bg-neutral-100 hover:text-[#f97316] dark:hover:bg-white/10 dark:hover:text-[#f97316]"
         aria-label="Add list"
         onClick={openCreateListForm}
       >
@@ -1237,7 +1282,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     ) : reorderListId ? (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={filteredItems.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-          <ul className="space-y-1">
+          <ul className="min-w-0 space-y-1">
             {filteredItems.map((row) => (
               <SortableTodoLi
                 key={row.id}
@@ -1250,12 +1295,16 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
         </SortableContext>
       </DndContext>
     ) : (
-      <ul className="space-y-1">
+      <ul className="min-w-0 space-y-1">
         {filteredItems.map((row) => (
           <StaticTodoLi key={row.id} row={row} expanded={expandedTodoIds.has(row.id)} {...baseTodoLiProps} />
         ))}
       </ul>
     );
+
+  /** Empty focused composer keeps fixed height; `field-sizing-content` on textarea adds extra slack below the line. */
+  const composerTitleAutoHeight =
+    composerOpen && (title.trim().length > 0 || body.trim().length > 0);
 
   const formOrUpgrade = atLimit ? (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200/80 bg-orange-50/90 px-3 py-2 dark:border-orange-900/45 dark:bg-orange-950/35">
@@ -1275,10 +1324,12 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
       onClick={() => setComposerOpen(true)}
     >
       <div
-        className={cn('flex min-w-0 gap-2', composerOpen ? 'items-start' : 'items-center')}
+        className={cn('flex min-w-0 gap-2', composerTitleAutoHeight ? 'items-start' : 'items-center')}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={cn('relative min-w-0 flex-1', composerOpen ? 'min-h-10' : 'h-10 max-h-10')}>
+        <div
+          className={cn('relative min-w-0 flex-1', composerTitleAutoHeight ? 'min-h-10' : 'h-10 max-h-10')}
+        >
           <Label htmlFor="new-todo" className="sr-only">
             New item
           </Label>
@@ -1294,13 +1345,13 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
             }}
             placeholder="Add a task…"
             autoComplete="off"
-            rows={composerOpen ? 3 : 1}
+            rows={1}
             className={cn(
-              'field-sizing-content box-border w-full resize-none rounded-xl border border-transparent px-4 text-[15px] text-neutral-900 outline-none',
-              composerOpen
-                ? 'min-h-10 max-h-none py-2.5'
-                : 'h-10 max-h-10 min-h-10 py-0 leading-[2.5rem]',
-              'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:ring-white/15',
+              'box-border w-full resize-none rounded-xl border border-transparent px-4 text-[15px] leading-[2.5rem] text-neutral-900 outline-none',
+              composerTitleAutoHeight
+                ? 'field-sizing-content min-h-10 max-h-none overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+                : '[field-sizing:fixed] h-10 max-h-10 min-h-0 overflow-hidden',
+              'focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:ring-white/15',
               composerOpen
                 ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
                 : 'bg-transparent shadow-none dark:bg-transparent',
@@ -1310,10 +1361,10 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
         </div>
         <Button
           type="submit"
-          disabled={busy === 'create' || !(title.trim() || body.trim())}
+          disabled={busy === 'create'}
           className={cn(
             'box-border h-10 max-h-10 min-h-10 shrink-0 rounded-xl border border-transparent px-4 py-0 text-[15px] font-semibold leading-none text-white shadow-md shadow-orange-900/25',
-            composerOpen && 'self-start mt-0.5',
+            'focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-white/45',
             accentOrange,
           )}
         >
@@ -1340,7 +1391,8 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
             rows={3}
             maxLength={TODO_BODY_MAX_LENGTH}
             className={cn(
-              'field-sizing-content box-border min-h-[2.75rem] w-full resize-none rounded-xl border border-transparent px-4 py-2.5 text-[15px] text-neutral-900 outline-none',
+              'field-sizing-content box-border min-h-[2.75rem] w-full resize-none overflow-y-auto rounded-xl border border-transparent px-4 py-2.5 text-[15px] text-neutral-900 outline-none',
+              '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
               'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]',
               'focus-visible:ring-2 focus-visible:ring-[#f97316]/25 dark:text-white',
               'placeholder:text-[#8e8e8e]',
@@ -1355,21 +1407,20 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     <>
       <div
         className={cn(
-          'mx-auto flex w-full flex-row items-stretch gap-2 transition-[max-width] duration-300 ease-out sm:gap-2.5',
-          hasLongTodo ? 'max-w-3xl' : 'max-w-md',
+          'mx-auto flex w-full min-w-0 max-w-none flex-row items-stretch gap-2 sm:gap-2.5',
         )}
       >
         {listsDrawer}
         <div
           className={cn(
-            'min-w-0 flex-1 rounded-[1.75rem] p-2 sm:p-2.5',
+            'min-w-0 flex-1 rounded-[1.75rem] p-2 pl-5 sm:p-2.5 sm:pl-7',
             'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
             'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
           )}
         >
           <div
             className={cn(
-              'flex min-h-0 flex-1 flex-col gap-3 rounded-[1.25rem] border px-4 pb-4 pt-4',
+              'flex min-h-0 flex-1 flex-col gap-3 overflow-x-visible rounded-[1.25rem] border px-4 pb-4 pt-4',
               'border-black/[0.06] bg-white shadow-sm',
               'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
             )}

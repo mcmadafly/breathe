@@ -1135,47 +1135,51 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
               <List className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
               <span className="truncate">{list.name}</span>
             </button>
-            <div className="flex shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 [@media(hover:none)]:opacity-100">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7 rounded-lg text-[#8e8e8e] hover:text-[#f97316]"
-                aria-label={`Rename ${list.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEditListForm(list);
-                }}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7 rounded-lg text-[#8e8e8e] hover:text-red-600"
-                aria-label={`Delete ${list.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void deleteListById(list.id);
-                }}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
+            {isPro ? (
+              <div className="flex shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 [@media(hover:none)]:opacity-100">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 rounded-lg text-[#8e8e8e] hover:text-[#f97316]"
+                  aria-label={`Rename ${list.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditListForm(list);
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 rounded-lg text-[#8e8e8e] hover:text-red-600"
+                  aria-label={`Delete ${list.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void deleteListById(list.id);
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ) : null}
           </div>
         ))}
       </nav>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="mt-1 size-9 rounded-xl text-[#8e8e8e] hover:bg-white/60 hover:text-[#f97316] dark:hover:bg-white/5"
-        aria-label="Add list"
-        onClick={openCreateListForm}
-      >
-        <Plus className="size-5" strokeWidth={2} />
-      </Button>
+      {isPro ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="mt-1 size-9 rounded-xl text-[#8e8e8e] hover:bg-white/60 hover:text-[#f97316] dark:hover:bg-white/5"
+          aria-label="Add list"
+          onClick={openCreateListForm}
+        >
+          <Plus className="size-5" strokeWidth={2} />
+        </Button>
+      ) : null}
     </div>
   );
 
@@ -1201,30 +1205,33 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
           {tab.label}
         </button>
       ))}
-      <button
-        type="button"
-        className="-mb-px box-border inline-flex min-w-8 shrink-0 items-center justify-center rounded-lg border-b-[3px] border-transparent pb-2.5 pt-1 text-[#8e8e8e] transition-colors hover:bg-neutral-100 hover:text-[#f97316] dark:hover:bg-white/10 dark:hover:text-[#f97316]"
-        aria-label="Add list"
-        onClick={openCreateListForm}
-      >
-        <Plus className="size-4" strokeWidth={2} />
-      </button>
+      {isPro ? (
+        <button
+          type="button"
+          className="-mb-px box-border inline-flex min-w-8 shrink-0 items-center justify-center rounded-lg border-b-[3px] border-transparent pb-2.5 pt-1 text-[#8e8e8e] transition-colors hover:bg-neutral-100 hover:text-[#f97316] dark:hover:bg-white/10 dark:hover:text-[#f97316]"
+          aria-label="Add list"
+          onClick={openCreateListForm}
+        >
+          <Plus className="size-4" strokeWidth={2} />
+        </button>
+      ) : null}
     </div>
   );
 
   const listsDrawer = (
-    <div className="hidden shrink-0 gap-0 self-stretch lg:flex">
+    <div className="hidden shrink-0 gap-0 lg:flex lg:flex-row lg:items-start">
       <button
         ref={listsStripRef}
         type="button"
         aria-expanded={listsOpen}
         aria-controls="lists-drawer-panel"
         className={cn(
-          'flex min-h-[11rem] shrink-0 cursor-pointer flex-col items-center justify-center border-0 bg-transparent p-0 shadow-none outline-none',
+          // self-start: do not stretch to drawer height (sidebar stays tall when collapsed).
+          'flex min-h-[11rem] shrink-0 cursor-pointer flex-col items-center justify-start self-start border-0 bg-transparent p-0 shadow-none outline-none',
+          'lg:mt-2 lg:min-h-0 lg:pt-0',
           'text-xs font-medium tracking-tight text-[#8e8e8e] transition-colors duration-150 ease-out hover:text-[#f97316]',
           'focus-visible:ring-2 focus-visible:ring-neutral-900/15 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           'dark:text-neutral-500 dark:hover:text-[#f97316] dark:focus-visible:ring-white/20',
-          'lg:min-h-0 lg:flex-1',
         )}
         onClick={() => setListsOpen((o) => !o)}
       >
@@ -1238,7 +1245,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
         role="region"
         aria-label="Categories"
         className={cn(
-          'flex min-h-0 flex-col overflow-hidden rounded-xl border border-l-0',
+          'flex min-h-0 shrink-0 flex-col self-start overflow-hidden rounded-xl border border-l-0',
           'border-transparent bg-white/50 backdrop-blur-xl transition-[max-width,opacity,border-color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] dark:bg-neutral-900/45',
           listsOpen
             ? 'max-w-[min(13.5rem,calc(100vw-3rem))] border-black/[0.06] opacity-100 shadow-sm dark:border-white/[0.09]'
@@ -1268,11 +1275,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
 
   const listSection =
     items.length === 0 ? (
-      <ul className="space-y-1">
-        <li className="rounded-2xl border border-dashed border-neutral-200 py-8 text-center text-sm text-[#8e8e8e] dark:border-neutral-700 dark:text-neutral-500">
-          Nothing here yet. Add a task below.
-        </li>
-      </ul>
+      <ul className="min-w-0 space-y-1" />
     ) : filteredItems.length === 0 ? (
       <ul className="space-y-1">
         <li className="rounded-2xl border border-dashed border-neutral-200 py-8 text-center text-sm text-[#8e8e8e] dark:border-neutral-700 dark:text-neutral-500">
@@ -1309,7 +1312,7 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   const formOrUpgrade = atLimit ? (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200/80 bg-orange-50/90 px-3 py-2 dark:border-orange-900/45 dark:bg-orange-950/35">
       <p className="min-w-0 flex-1 text-xs leading-tight text-muted-foreground">
-        Want more items and categories? Upgrade to Pro.
+        Want to save your todos? More items and categories? Upgrade to Pro!
       </p>
       <Button className={cn('h-7 shrink-0 rounded-lg px-2.5 text-xs font-semibold text-white', accentOrange)} asChild>
         <a href="/upgrade">Upgrade</a>
@@ -1324,11 +1327,17 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
       onClick={() => setComposerOpen(true)}
     >
       <div
-        className={cn('flex min-w-0 gap-2', composerTitleAutoHeight ? 'items-start' : 'items-center')}
+        className={cn(
+          'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2',
+          composerTitleAutoHeight ? 'items-start' : 'items-center',
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className={cn('relative min-w-0 flex-1', composerTitleAutoHeight ? 'min-h-10' : 'h-10 max-h-10')}
+          className={cn(
+            'relative flex min-w-0',
+            composerTitleAutoHeight ? 'min-h-10 items-start' : 'h-10 max-h-10 items-stretch',
+          )}
         >
           <Label htmlFor="new-todo" className="sr-only">
             New item
@@ -1347,10 +1356,10 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
             autoComplete="off"
             rows={1}
             className={cn(
-              'box-border w-full resize-none rounded-xl border border-transparent px-4 text-[15px] leading-[2.5rem] text-neutral-900 outline-none',
+              'box-border w-full resize-none rounded-xl border border-transparent px-4 text-[15px] text-neutral-900 outline-none',
               composerTitleAutoHeight
-                ? 'field-sizing-content min-h-10 max-h-none overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
-                : '[field-sizing:fixed] h-10 max-h-10 min-h-0 overflow-hidden',
+                ? 'field-sizing-content min-h-10 max-h-none overflow-y-auto py-2 leading-snug [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+                : '[field-sizing:fixed] h-10 max-h-10 min-h-0 overflow-hidden py-0 leading-[2.5rem]',
               'focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:ring-white/15',
               composerOpen
                 ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
@@ -1407,25 +1416,24 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     <>
       <div
         className={cn(
-          'mx-auto flex w-full min-w-0 max-w-none flex-row items-stretch gap-2 sm:gap-2.5',
+          'mx-auto flex w-full min-w-0 max-w-none flex-row items-start gap-2 sm:gap-2.5',
         )}
       >
         {listsDrawer}
         <div
           className={cn(
-            'min-w-0 flex-1 rounded-[1.75rem] p-2 pl-5 sm:p-2.5 sm:pl-7',
-            'bg-[#f0f0f0] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.05]',
-            'dark:bg-[#121416] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.55)] dark:ring-white/[0.06]',
+            'min-w-0 flex-1 rounded-[1.75rem]',
+            'bg-transparent shadow-none ring-0 dark:bg-transparent dark:shadow-none dark:ring-0',
           )}
         >
           <div
             className={cn(
-              'flex min-h-0 flex-1 flex-col gap-3 overflow-x-visible rounded-[1.25rem] border px-4 pb-4 pt-4',
+              'flex min-h-0 flex-1 flex-col gap-3 overflow-x-visible rounded-[1.25rem] border pt-4 pb-4 pr-4 pl-12',
               'border-black/[0.06] bg-white shadow-sm',
               'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
             )}
           >
-            <div className="lg:hidden -mx-4 -mt-4 mb-1 px-4 pt-4">{mobileCategoryTablist}</div>
+            <div className="lg:hidden -mt-4 mb-1 -ml-12 -mr-4 px-4 pt-4">{mobileCategoryTablist}</div>
             {listSection}
 
             <div className="py-3">{formOrUpgrade}</div>

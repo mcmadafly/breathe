@@ -51,7 +51,8 @@ export function UserMenu({ name, email, image }: Props) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => {
+          onSelect={(e) => {
+            e.preventDefault();
             void logout();
           }}
         >

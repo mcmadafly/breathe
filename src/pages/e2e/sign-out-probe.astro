@@ -1,0 +1,19 @@
+---
+import { E2eSignOutProbe } from '@/components/e2e-sign-out-probe';
+
+if (import.meta.env.SCRIBBBLES_E2E !== true) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E2E sign-out probe</title>
+  </head>
+  <body class="bg-background text-foreground p-4 antialiased">
+    <E2eSignOutProbe client:load />
+  </body>
+</html>

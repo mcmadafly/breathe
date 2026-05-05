@@ -60,7 +60,7 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
         return;
       }
       toast.success("You're on Pro — categories unlocked.");
-      window.location.href = '/breathe';
+      window.location.href = '/';
     } finally {
       setBusy(null);
     }
@@ -72,7 +72,7 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
         <p className="text-foreground text-base font-medium">You&apos;re on Pro</p>
         <p>Categories and unlimited items are enabled.</p>
         <p>
-          <a href="/breathe" className="text-foreground font-medium underline underline-offset-4">
+          <a href="/" className="text-foreground font-medium underline underline-offset-4">
             Back to list
           </a>
         </p>

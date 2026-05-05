@@ -30,6 +30,8 @@ interface Props {
   homeHref: string;
   showUpgrade: boolean;
   skipAuth: boolean;
+  /** Cookie session only — show Sign in instead of account menu. */
+  isAnonymous?: boolean;
   /** Match wider `main` on boards (e.g. /breathe). */
   wideLayout?: boolean;
   userName?: string | null;
@@ -54,6 +56,7 @@ export function SiteHeader({
   homeHref,
   showUpgrade,
   skipAuth,
+  isAnonymous = false,
   wideLayout = false,
   userName,
   userEmail,
@@ -74,7 +77,8 @@ export function SiteHeader({
     setMenuDark(next);
   }
 
-  const showUserMenu = Boolean(!skipAuth && userEmail);
+  const showUserMenu = Boolean(!skipAuth && userEmail && !isAnonymous);
+  const showAnonSignIn = Boolean(!skipAuth && isAnonymous);
 
   return (
     <div
@@ -102,6 +106,14 @@ export function SiteHeader({
                 {menuDark ? <Sun className="mr-2 size-4" /> : <Moon className="mr-2 size-4" />}
                 {menuDark ? 'Light mode' : 'Dark mode'}
               </DropdownMenuItem>
+              {showAnonSignIn ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href="/sign-in">Sign in</a>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
               {showUserMenu ? (
                 <>
                   <DropdownMenuSeparator />
@@ -173,6 +185,11 @@ export function SiteHeader({
 
       <div className="hidden min-w-0 items-center justify-end gap-1 md:flex md:w-full md:justify-self-stretch">
         <ThemeToggle />
+        {showAnonSignIn ? (
+          <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+            <a href="/sign-in">Sign in</a>
+          </Button>
+        ) : null}
         {showUserMenu ? <UserMenu name={userName} email={userEmail} image={userImage} /> : null}
       </div>
     </div>

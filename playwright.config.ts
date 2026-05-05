@@ -30,6 +30,7 @@ export default defineConfig({
       ASTRO_TELEMETRY_DISABLED: '1',
       E2E_DEV: 'true',
       SKIP_AUTH: 'true',
+      FORCE_PRO: 'true',
       TURSO_DATABASE_URL: e2eDb,
     },
     url: baseURL,

@@ -12,6 +12,15 @@ import { shadcn } from '@clerk/ui/themes';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const e2eDev = process.env.E2E_DEV === 'true';
+/** `astro dev` (npm script or `npx astro dev`) — avoid Vite SSR prebundle splitting `react` from `react-dom/server`. */
+const npmRunDev =
+  process.env.npm_lifecycle_event === 'dev' ||
+  (() => {
+    const i = process.argv.findIndex(
+      (a) => a === 'astro' || /[/\\]astro\.js$/.test(a),
+    );
+    return i !== -1 && process.argv[i + 1] === 'dev';
+  })();
 
 // https://astro.build/config
 export default defineConfig({
@@ -49,9 +58,39 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // Pin to one install path so SSR islands and `react-dom/server` share the same `react` instance.
+        react: path.resolve(__dirname, './node_modules/react'),
+        'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
       },
+    },
+    define: {
+      'import.meta.env.SCRIBBBLES_E2E': JSON.stringify(e2eDev),
+    },
+    optimizeDeps: {
+      include: [
+        'astro/actions/runtime/entrypoints/server.js',
+        '@clerk/astro/server',
+        '@clerk/astro/internal',
+        'zod',
+      ],
+    },
+    ssr: {
+      optimizeDeps: {
+        include: [
+          'astro/actions/runtime/entrypoints/server.js',
+          '@clerk/astro/server',
+          '@clerk/astro/internal',
+          'zod',
+        ],
+      },
+      ...(npmRunDev
+        ? {
+            external: ['react', 'react-dom'],
+          }
+        : {}),
     },
   },
 

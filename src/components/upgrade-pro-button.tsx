@@ -16,7 +16,7 @@ export function UpgradeProButton() {
       return;
     }
     toast.success("You're on Pro — categories unlocked.");
-    window.location.href = '/breathe';
+    window.location.href = '/';
   }
 
   return (

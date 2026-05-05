@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 function submitComposerForm(page: Page) {
   return page.locator('form').filter({ has: page.locator('#new-todo') }).evaluate((f) => {
@@ -6,11 +7,11 @@ function submitComposerForm(page: Page) {
   });
 }
 
-test.describe('/breathe todo tasks', () => {
+test.describe('/ todo tasks', () => {
   test('add task then toggle done shows strikethrough', async ({ page }) => {
     test.setTimeout(90_000);
     const label = `pw-todo-${Date.now()}`;
-    await page.goto('/breathe', { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'load' });
     const field = page.getByRole('textbox', { name: 'New item' });
     await expect(field).toBeVisible({ timeout: 20_000 });
     await field.click();

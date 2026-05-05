@@ -56,6 +56,8 @@ const e2eEnv = {
   TURSO_DATABASE_URL: url,
   E2E_DEV: 'true',
   SKIP_AUTH: 'true',
+  /** Unblocks composer when the E2E DB already has ≥ free-tier todos (stale file or parallel runs). */
+  FORCE_PRO: 'true',
   ASTRO_TELEMETRY_DISABLED: '1',
 };
 

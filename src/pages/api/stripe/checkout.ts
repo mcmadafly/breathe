@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
+import { isAnonymousUserId } from '@/lib/auth/anonymous-session';
 import { priceIdForPlan, isStripeBillingConfigured } from '@/lib/stripe/billing';
 import { getStripe } from '@/lib/stripe/client';
 
@@ -10,7 +11,7 @@ const bodySchema = z.object({
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
   const userId = locals.session?.user?.id;
-  if (!userId) {
+  if (!userId || isAnonymousUserId(userId)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },

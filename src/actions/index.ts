@@ -16,6 +16,7 @@ import {
   updateTodoToggleDynamic,
 } from '@/lib/db/todo-table-capabilities';
 import { todoLists, todos, users } from '@/lib/db/schema';
+import { isAnonymousUserId } from '@/lib/auth/anonymous-session';
 import { FREE_TODO_LIMIT, TODO_LIST_NAME_MAX_LENGTH, TODO_CONTENT_MAX_LENGTH } from '@/lib/todo-limits';
 import { splitTodoContent } from '@/lib/todo-text';
 import { toTodoWire, todoSync } from '@/lib/todo-sync';
@@ -25,6 +26,15 @@ async function requireUserId(context: { locals: App.Locals }) {
   const id = session?.user?.id;
   if (!id) {
     throw new ActionError({ code: 'UNAUTHORIZED', message: 'Sign in required' });
+  }
+  return id;
+}
+
+/** Billing and account-only flows — anonymous cookie sessions cannot use these. */
+async function requireSignedInUserId(context: { locals: App.Locals }) {
+  const id = await requireUserId(context);
+  if (isAnonymousUserId(id)) {
+    throw new ActionError({ code: 'UNAUTHORIZED', message: 'Sign in to continue' });
   }
   return id;
 }
@@ -81,7 +91,7 @@ export const server = {
     accept: 'json',
     input: z.object({}),
     handler: async (_input, context) => {
-      const userId = await requireUserId(context);
+      const userId = await requireSignedInUserId(context);
       await db.update(users).set({ isPro: true }).where(eq(users.id, userId));
       return { ok: true as const };
     },
@@ -93,6 +103,12 @@ export const server = {
       name: z.string().trim().min(1).max(TODO_LIST_NAME_MAX_LENGTH),
     }),
     handler: async (input, context) => {
+      if (!context.locals.isPro) {
+        throw new ActionError({
+          code: 'FORBIDDEN',
+          message: 'Custom lists are a Pro feature. Upgrade to create lists.',
+        });
+      }
       const userId = await requireUserId(context);
       const [mx] = await db
         .select({ v: max(todoLists.position) })
@@ -121,6 +137,12 @@ export const server = {
       name: z.string().trim().min(1).max(TODO_LIST_NAME_MAX_LENGTH),
     }),
     handler: async (input, context) => {
+      if (!context.locals.isPro) {
+        throw new ActionError({
+          code: 'FORBIDDEN',
+          message: 'Renaming lists is a Pro feature. Upgrade to edit lists.',
+        });
+      }
       const userId = await requireUserId(context);
       const row = await db
         .select()
@@ -143,6 +165,12 @@ export const server = {
     accept: 'json',
     input: z.object({ id: z.string().min(1) }),
     handler: async (input, context) => {
+      if (!context.locals.isPro) {
+        throw new ActionError({
+          code: 'FORBIDDEN',
+          message: 'Deleting lists is a Pro feature. Upgrade to manage lists.',
+        });
+      }
       const userId = await requireUserId(context);
       const row = await db
         .select()

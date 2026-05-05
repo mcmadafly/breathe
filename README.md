@@ -1,43 +1,39 @@
-# Astro Starter Kit: Minimal
+# Breathe
 
-```sh
-npm create astro@latest -- --template minimal
-```
+A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe. Build. Repeat.**
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+- **Site / product:** [Taecho](https://taecho.co) — source and issues live on [GitHub](https://github.com/mcmadafly/breathe).
+- **License:** [MIT](LICENSE) (copyright Taecho; see file for full text). In the running app, **`/mit-license`** shows the same license for easy reading.
 
-## 🚀 Project Structure
+## What’s in the box
 
-Inside of your Astro project, you'll see the following folders and files:
+- **Todos:** Multiple lists, drag-and-drop ordering, notes on tasks, done state, limits and upgrade path for Pro (Stripe).
+- **Auth:** [Clerk](https://clerk.com/) (sign-in / sign-up), optional cookie-backed anonymous session where routes allow it.
+- **Data:** [Turso](https://turso.tech/) (libSQL) + [Drizzle ORM](https://orm.drizzle.team/); migrations under `drizzle/`.
+- **App shell:** [Astro](https://astro.build/) (server output) + React islands, [Tailwind CSS](https://tailwindcss.com/) v4, shadcn-style UI, theme toggle, toasts.
+- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`.
+- **PWA:** Web app manifest and service worker for installable, offline-friendly static assets.
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` gates compile-time E2E helpers (e.g. internal probe routes).
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## Requirements
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+- **Node** ≥ 22.12 (see `package.json` → `engines`).
+- **Env:** Clerk keys, `TURSO_DATABASE_URL` (and related), Stripe keys for billing—see `.env.example` and Cloudflare/`wrangler` secrets for production.
 
-Any static assets, like images, can be placed in the `public/` directory.
+## Commands
 
-## 🧞 Commands
+| Command | Action |
+| :------ | :----- |
+| `npm install` | Install dependencies |
+| `npm run dev` | Dev server (default [localhost:4321](http://localhost:4321)) |
+| `npm run build` | Production build to `./dist/` |
+| `npm run preview` | Preview the build locally |
+| `npm run deploy` / `deploy:worker` | Cloudflare Pages / Worker deploy (see scripts) |
+| `npm run db:push` | Apply Drizzle schema to the configured database |
+| `npm test` | Vitest (unit + component as configured) |
+| `npm run test:e2e` | Rebuilds for E2E env, runs Playwright (preview + screenshots) |
 
-All commands are run from the root of the project, from a terminal:
+## Contributing / docs
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Issues and PRs welcome on the [repository](https://github.com/mcmadafly/breathe). Astro’s own docs live at [docs.astro.build](https://docs.astro.build).

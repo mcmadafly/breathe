@@ -5,6 +5,8 @@ declare namespace App {
   interface Locals {
     session: import('@/lib/auth/session').AppSession | null;
     isPro: boolean;
+    /** True when using cookie-backed anonymous user (`anon_*` id), before Clerk sign-in. */
+    isAnonymous: boolean;
   }
 }
 
@@ -13,6 +15,8 @@ interface ImportMetaEnv {
   readonly TURSO_AUTH_TOKEN?: string;
   readonly PUBLIC_CLERK_PUBLISHABLE_KEY: string;
   readonly CLERK_SECRET_KEY: string;
+  /** Set at Astro build/dev from `E2E_DEV` via Vite `define` (e2e probe routes). */
+  readonly SCRIBBBLES_E2E: boolean;
   /** When "true", skips Clerk and uses a fixed local user for /breathe and todos. */
   readonly SKIP_AUTH?: string;
   /** When "true", treats current session as Pro (for local testing). */

@@ -17,7 +17,13 @@ import {
 } from '@/lib/db/todo-table-capabilities';
 import { todoLists, todos, users } from '@/lib/db/schema';
 import { isAnonymousUserId } from '@/lib/auth/anonymous-session';
-import { FREE_TODO_LIMIT, TODO_LIST_NAME_MAX_LENGTH, TODO_CONTENT_MAX_LENGTH } from '@/lib/todo-limits';
+import {
+  FREE_TODO_LIMIT,
+  TODO_LIST_NAME_MAX_LENGTH,
+  TODO_CONTENT_MAX_LENGTH,
+  TODO_TITLE_MAX_LENGTH,
+  TODO_BODY_MAX_LENGTH,
+} from '@/lib/todo-limits';
 import { splitTodoContent } from '@/lib/todo-text';
 import { toTodoWire, todoSync } from '@/lib/todo-sync';
 
@@ -92,7 +98,20 @@ export const server = {
     input: z.object({}),
     handler: async (_input, context) => {
       const userId = await requireSignedInUserId(context);
-      await db.update(users).set({ isPro: true }).where(eq(users.id, userId));
+      try {
+        await db
+          .update(users)
+          .set({
+            isPro: true,
+            proPlan: 'complimentary',
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+          })
+          .where(eq(users.id, userId));
+      } catch (err) {
+        console.warn('[upgradeToPro] full update failed; setting is_pro only', err);
+        await db.update(users).set({ isPro: true }).where(eq(users.id, userId));
+      }
       return { ok: true as const };
     },
   }),
@@ -315,7 +334,8 @@ export const server = {
     accept: 'json',
     input: z.object({
       id: z.string().min(1),
-      title: z.string().min(1).max(TODO_CONTENT_MAX_LENGTH),
+      title: z.string().max(TODO_TITLE_MAX_LENGTH),
+      body: z.string().max(TODO_BODY_MAX_LENGTH),
     }),
     handler: async (input, context) => {
       const userId = await requireUserId(context);
@@ -323,7 +343,8 @@ export const server = {
       if (!row) {
         throw new ActionError({ code: 'NOT_FOUND', message: 'Todo not found' });
       }
-      const { title, body } = splitTodoContent(input.title);
+      const title = input.title.trim();
+      const body = input.body.trim();
       if (!title) {
         throw new ActionError({ code: 'BAD_REQUEST', message: 'Add some text for this task.' });
       }

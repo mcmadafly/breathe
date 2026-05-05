@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
 import { isAnonymousUserId } from '@/lib/auth/anonymous-session';
-import { priceIdForPlan, isStripeBillingConfigured } from '@/lib/stripe/billing';
+import { isStripePriceId, priceIdForPlan, stripePriceMisconfiguredHint } from '@/lib/stripe/billing';
 import { getStripe } from '@/lib/stripe/client';
 
 const bodySchema = z.object({
@@ -38,16 +38,17 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
   const plan = parsed.data.plan;
 
-  if (!isStripeBillingConfigured()) {
+  if (!import.meta.env.STRIPE_SECRET_KEY?.trim()) {
     return new Response(JSON.stringify({ error: 'Billing is not configured' }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  const priceId = priceIdForPlan(plan);
-  if (!priceId?.trim()) {
-    return new Response(JSON.stringify({ error: 'Missing price configuration' }), {
+  const rawPrice = priceIdForPlan(plan);
+  const priceId = rawPrice?.trim();
+  if (!isStripePriceId(priceId)) {
+    return new Response(JSON.stringify({ error: stripePriceMisconfiguredHint(rawPrice, plan) }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });

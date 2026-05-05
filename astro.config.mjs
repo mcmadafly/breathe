@@ -57,6 +57,10 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      /** Stabilize HMR WebSocket URL when proxies or extensions confuse auto-detection. */
+      hmr: { protocol: 'ws', host: 'localhost' },
+    },
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {
@@ -76,6 +80,8 @@ export default defineConfig({
         '@clerk/astro/internal',
         'zod',
       ],
+      /** Avoid broken `deps_ssr/stripe.js` in Cloudflare worker dev (Vite dep scan). */
+      exclude: ['stripe'],
     },
     ssr: {
       optimizeDeps: {
@@ -85,6 +91,8 @@ export default defineConfig({
           '@clerk/astro/internal',
           'zod',
         ],
+        /** Stripe breaks SSR prebundle (missing/invalid `deps_ssr` chunks in dev). */
+        exclude: ['stripe'],
       },
       ...(npmRunDev
         ? {

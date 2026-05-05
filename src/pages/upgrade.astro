@@ -7,9 +7,19 @@ const session = Astro.locals.session;
 if (!session?.user?.id) return Astro.redirect('/sign-in');
 
 const isPro = Astro.locals.isPro;
+const proPlan = Astro.locals.proPlan;
+const stripeCustomerId = Astro.locals.stripeCustomerId;
+const stripeSubscriptionId = Astro.locals.stripeSubscriptionId;
 const stripeBillingConfigured = isStripeBillingConfigured();
 ---
 
 <BaseLayout title="Upgrade · Breathe" session={session} isPro={isPro} wideContent>
-  <UpgradePlans client:load isPro={isPro} stripeBillingConfigured={stripeBillingConfigured} />
+  <UpgradePlans
+    client:load
+    isPro={isPro}
+    proPlan={proPlan}
+    stripeCustomerId={stripeCustomerId}
+    stripeSubscriptionId={stripeSubscriptionId}
+    stripeBillingConfigured={stripeBillingConfigured}
+  />
 </BaseLayout>

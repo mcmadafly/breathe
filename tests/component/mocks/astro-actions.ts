@@ -117,12 +117,11 @@ export const actions = {
     return { data: { ok: true as const } as unknown, error: undefined };
   },
 
-  async updateTodoTitle(input: { id: string; title: string }) {
+  async updateTodoTitle(input: { id: string; title: string; body: string }) {
     const row = todos.find((t) => t.id === input.id);
     if (!row) return { data: undefined, error: { message: 'not found' } };
-    const { title, body } = splitTodoContent(input.title);
-    row.title = title;
-    row.body = body;
+    row.title = input.title;
+    row.body = input.body;
     row.updatedAt = now();
     return { data: cloneTodo(row) as unknown, error: undefined };
   },

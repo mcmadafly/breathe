@@ -8,6 +8,11 @@ export const users = sqliteTable('users', {
   image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   isPro: integer('is_pro', { mode: 'boolean' }).notNull().default(false),
+  /** `monthly` | `lifetime` (Stripe) | `complimentary` (free unlock). Null when not Pro or legacy row. */
+  proPlan: text('pro_plan'),
+  stripeCustomerId: text('stripe_customer_id'),
+  /** Present for active monthly subscriptions; used for billing UI and webhook sync. */
+  stripeSubscriptionId: text('stripe_subscription_id'),
 });
 
 export const todoLists = sqliteTable('todo_lists', {

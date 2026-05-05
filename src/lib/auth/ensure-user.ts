@@ -11,15 +11,24 @@ export async function ensureUser(session: AppSession) {
   const id = u.id;
   const email = u.email ?? `${id}@users.local`;
 
-  const existing = await db.select().from(users).where(eq(users.id, id)).get();
-  if (existing) return;
+  try {
+    const existing = await db.select({ id: users.id }).from(users).where(eq(users.id, id)).get();
+    if (existing) return;
+  } catch (err) {
+    console.error('[ensureUser] failed to check existing user', err);
+    return;
+  }
 
-  await db.insert(users).values({
-    id,
-    email,
-    name: u.name ?? null,
-    image: u.image ?? null,
-    createdAt: new Date(),
-    isPro: false,
-  });
+  try {
+    await db.insert(users).values({
+      id,
+      email,
+      name: u.name ?? null,
+      image: u.image ?? null,
+      createdAt: new Date(),
+      isPro: false,
+    });
+  } catch (err) {
+    console.error('[ensureUser] failed to insert user', err);
+  }
 }

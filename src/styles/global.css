@@ -125,7 +125,29 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background-color: var(--background);
+    /* Abstract mesh: soft blobs + base tint (fixed so scroll feels calm). */
+    background-image: radial-gradient(
+        ellipse 90% 55% at 10% -15%,
+        oklch(0.93 0.07 55 / 0.55),
+        transparent 58%
+      ),
+      radial-gradient(ellipse 55% 40% at 92% 8%, oklch(0.9 0.05 265 / 0.28), transparent 50%),
+      radial-gradient(ellipse 75% 45% at 48% 108%, oklch(0.94 0.05 48 / 0.38), transparent 55%),
+      radial-gradient(ellipse 120% 80% at 50% 50%, oklch(0.99 0.01 85 / 0.4), transparent 70%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    }
+  html.dark body {
+    background-image: radial-gradient(
+        ellipse 88% 52% at 12% -8%,
+        oklch(0.24 0.08 55 / 0.55),
+        transparent 56%
+      ),
+      radial-gradient(ellipse 48% 38% at 88% 12%, oklch(0.26 0.07 270 / 0.32), transparent 48%),
+      radial-gradient(ellipse 80% 48% at 42% 102%, oklch(0.22 0.06 35 / 0.42), transparent 52%),
+      radial-gradient(ellipse 100% 70% at 50% 40%, oklch(0.18 0.03 260 / 0.35), transparent 65%);
     }
   html {
     @apply font-sans;
@@ -134,6 +156,34 @@
   html.dark {
     color-scheme: dark;
     }
+}
+
+/* Focus / zen mode: fade chrome; exit control is fixed in SiteHeader. */
+@layer components {
+  html.zen-mode .site-header-root,
+  html.zen-mode .site-footer-wrap {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html.zen-mode .site-header-root,
+    html.zen-mode .site-footer-wrap {
+      transition: none;
+    }
+  }
+}
+
+/* Shared max-width for header + main when `wideContent` (upgrade = full wide; home may narrow). */
+@layer components {
+  .board-shell-wide {
+    @apply max-w-3xl md:max-w-4xl lg:max-w-5xl;
+  }
+
+  html.todo-board-page:not(.todo-board-wide) .board-shell-wide {
+    @apply md:max-w-3xl lg:max-w-2xl;
+  }
 }
 
 /* Logo / hero title: one subtle inhale/exhale; triggered intermittently from React (see useBreathingWordmark). */

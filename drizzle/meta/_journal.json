@@ -36,6 +36,20 @@
       "when": 1777900000000,
       "tag": "0004_todo_position",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1777953792449,
+      "tag": "0005_stripe_pro_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1777954954543,
+      "tag": "0006_stripe_subscription_id",
+      "breakpoints": true
     }
   ]
 }

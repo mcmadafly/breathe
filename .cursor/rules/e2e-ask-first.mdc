@@ -1,0 +1,10 @@
+---
+description: Do not run Playwright e2e unless the user explicitly agrees
+alwaysApply: true
+---
+
+# Playwright / e2e — ask first
+
+- **Do not** run `npm run test:e2e`, `playwright test`, or start an e2e web server for verification **unless the user has asked for it** or **explicitly approved** running e2e in the current thread (e.g. “yes, run e2e” / “run playwright”).
+- You may **offer** to run e2e after a substantive UI change; wait for confirmation before executing.
+- This does **not** relax other project rules that use **Vitest** (`npm test` / `vitest run`) — run those as instructed unless the user opts out for a given task.

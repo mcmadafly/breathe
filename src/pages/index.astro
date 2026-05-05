@@ -1,5 +1,6 @@
 ---
-import { TodoBoard, type TodoListRow, type TodoRow } from '@/components/todo-board';
+import { TODO_BOARD_EXPAND_SHELL_CHARS } from '@/lib/todo-limits';
+import { TodoBoardIsland, type TodoListRow, type TodoRow } from '@/components/todo-board-island';
 import { listTodoListsForUser } from '@/lib/db/todo-lists';
 import { listTodosForUser } from '@/lib/db/todos';
 
@@ -31,8 +32,20 @@ const initialTodos: TodoRow[] = rows.map((r) => ({
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
 }));
+
+const todoBoardInitiallyWide = rows.some(
+  (r) => r.title.length + (r.body?.length ?? 0) > TODO_BOARD_EXPAND_SHELL_CHARS,
+);
 ---
 
-<BaseLayout title="Breathe" session={session} isPro={isPro} isAnonymous={isAnonymous} wideContent>
-  <TodoBoard client:only="react" initialTodos={initialTodos} initialLists={initialLists} isPro={isPro} />
+<BaseLayout
+  title="Breathe"
+  session={session}
+  isPro={isPro}
+  isAnonymous={isAnonymous}
+  wideContent
+  adaptiveShell
+  todoBoardInitiallyWide={todoBoardInitiallyWide}
+>
+  <TodoBoardIsland client:only="react" initialTodos={initialTodos} initialLists={initialLists} isPro={isPro} />
 </BaseLayout>

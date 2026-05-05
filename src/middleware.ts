@@ -1,7 +1,6 @@
 import type { User } from '@clerk/backend';
 import type { APIContext } from 'astro';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/astro/server';
-import { eq } from 'drizzle-orm';
 
 import {
   ensureAnonymousSession,
@@ -12,9 +11,8 @@ import {
 import { ensureUser } from '@/lib/auth/ensure-user';
 import { getDevSession, isForcePro, isSkipAuth } from '@/lib/auth/dev-session';
 import type { AppSession } from '@/lib/auth/session';
-import { db } from '@/lib/db';
 import { ensureTodoListsAndMigrate } from '@/lib/db/todo-lists';
-import { users } from '@/lib/db/schema';
+import { getUserProState } from '@/lib/db/user-pro-state';
 
 const isProtectedRoute = createRouteMatcher(['/upgrade(.*)']);
 
@@ -36,23 +34,38 @@ function clerkUserToSession(user: User): AppSession {
 async function refreshProStatus(context: APIContext) {
   if (isForcePro()) {
     context.locals.isPro = true;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
     return;
   }
   const uid = context.locals.session?.user?.id;
   if (!uid) {
     context.locals.isPro = false;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
     return;
   }
   if (isAnonymousUserId(uid)) {
     context.locals.isPro = false;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
     return;
   }
-  const row = await db.select({ isPro: users.isPro }).from(users).where(eq(users.id, uid)).get();
-  context.locals.isPro = Boolean(row?.isPro);
+  const row = await getUserProState(uid);
+  context.locals.isPro = row.isPro;
+  context.locals.proPlan = row.proPlan;
+  context.locals.stripeCustomerId = row.stripeCustomerId;
+  context.locals.stripeSubscriptionId = row.stripeSubscriptionId;
 }
 
 export const onRequest = clerkMiddleware(async (auth, context, next) => {
   context.locals.isPro = false;
+  context.locals.proPlan = null;
+  context.locals.stripeCustomerId = null;
+  context.locals.stripeSubscriptionId = null;
   context.locals.session = null;
   context.locals.isAnonymous = false;
 

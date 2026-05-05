@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { isProPlan } from '@/lib/pro-plan';
 import { cn } from '@/lib/utils';
 
 const accentBtn =
@@ -12,23 +13,232 @@ type Busy = 'monthly' | 'lifetime' | 'free' | null;
 
 export interface UpgradePlansProps {
   isPro: boolean;
+  proPlan: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   stripeBillingConfigured: boolean;
 }
 
-export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansProps) {
+function ProMemberThanks({
+  stripeCustomerId,
+  onOpenPortal,
+  portalBusy,
+}: {
+  stripeCustomerId: string | null;
+  onOpenPortal: () => void;
+  portalBusy: boolean;
+}) {
+  return (
+    <div className="text-muted-foreground mx-auto max-w-md space-y-5 text-center text-sm">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Breathe Pro — Lifetime</h1>
+      <p className="leading-relaxed">
+        Thank you for being a lifetime member. Your one-time support makes a real difference in keeping Breathe fast,
+        quiet, and worthy of your daily list — we&apos;re genuinely grateful.
+      </p>
+      <p className="leading-relaxed">
+        You keep every Pro feature for as long as we offer the product: unlimited todos, lists, categories, and the
+        rest of what you see on this page.
+      </p>
+      {stripeCustomerId ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          disabled={portalBusy}
+          onClick={() => void onOpenPortal()}
+        >
+          {portalBusy ? 'Opening…' : 'Invoices & payment methods'}
+        </Button>
+      ) : null}
+      <p>
+        <a href="/" className="text-foreground font-medium underline underline-offset-4">
+          Back to list
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function ProMemberMonthly({
+  stripeCustomerId,
+  onOpenPortal,
+  portalBusy,
+}: {
+  stripeCustomerId: string | null;
+  onOpenPortal: () => void;
+  portalBusy: boolean;
+}) {
+  return (
+    <div className="text-muted-foreground mx-auto max-w-md space-y-5 text-center text-sm">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Your subscription</h1>
+      <p className="leading-relaxed">
+        You&apos;re on{' '}
+        <strong className="text-foreground">Breathe Pro — $1.99/month</strong>. Categories, unlimited todos, and lists are
+        included, and you can cancel whenever you like.
+      </p>
+      {stripeCustomerId ? (
+        <div className="flex flex-col items-center gap-3">
+          <Button
+            type="button"
+            className={cn(accentBtn, 'w-full max-w-xs')}
+            disabled={portalBusy}
+            onClick={() => void onOpenPortal()}
+          >
+            {portalBusy ? 'Opening…' : 'Manage or cancel subscription'}
+          </Button>
+          <p className="text-muted-foreground/90 max-w-sm text-xs leading-relaxed">
+            Opens Stripe&apos;s secure billing page to update your card, download invoices, or cancel the renewal.
+          </p>
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Your billing profile is still linking after checkout. Refresh this page in a few seconds, then use{' '}
+          <strong className="text-foreground">Manage or cancel subscription</strong> to open the Stripe portal.
+        </p>
+      )}
+      <p>
+        <a href="/" className="text-foreground font-medium underline underline-offset-4">
+          Back to list
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function ProMemberLegacy({
+  stripeCustomerId,
+  onOpenPortal,
+  portalBusy,
+}: {
+  stripeCustomerId: string;
+  onOpenPortal: () => void;
+  portalBusy: boolean;
+}) {
+  return (
+    <div className="text-muted-foreground mx-auto max-w-md space-y-5 text-center text-sm">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Breathe Pro</h1>
+      <p className="leading-relaxed">
+        Your Pro features are active — unlimited todos, lists, and categories. Thanks for supporting Breathe.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-1"
+        disabled={portalBusy}
+        onClick={() => void onOpenPortal()}
+      >
+        {portalBusy ? 'Opening…' : 'Billing & invoices'}
+      </Button>
+      <p className="text-muted-foreground/90 text-xs leading-relaxed">
+        Open Stripe to manage a subscription, payment method, or download receipts.
+      </p>
+      <p>
+        <a href="/" className="text-foreground font-medium underline underline-offset-4">
+          Back to list
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function ProMemberComplimentary() {
+  return (
+    <div className="text-muted-foreground mx-auto max-w-md space-y-5 text-center text-sm">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Breathe Pro</h1>
+      <p className="leading-relaxed">
+        You unlocked Pro through the free option. Categories, unlimited todos, and lists are yours — enjoy the calmer
+        surface.
+      </p>
+      <p>
+        <a href="/" className="text-foreground font-medium underline underline-offset-4">
+          Back to list
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function ProMemberActiveNoBillingRecord({
+  stripeBillingConfigured,
+  onOpenPortal,
+  portalBusy,
+}: {
+  stripeBillingConfigured: boolean;
+  onOpenPortal: () => void;
+  portalBusy: boolean;
+}) {
+  return (
+    <div className="text-muted-foreground mx-auto max-w-md space-y-5 text-center text-sm">
+      <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Breathe Pro</h1>
+      <p className="leading-relaxed">
+        Your Pro features are active — categories, unlimited todos, and lists. Thanks for supporting Breathe.
+      </p>
+      {stripeBillingConfigured ? (
+        <div className="flex flex-col items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full max-w-xs rounded-xl"
+            disabled={portalBusy}
+            onClick={() => void onOpenPortal()}
+          >
+            {portalBusy ? 'Opening…' : 'Manage or cancel in Stripe'}
+          </Button>
+          <p className="text-muted-foreground/90 max-w-sm text-xs leading-relaxed">
+            Opens Stripe&apos;s billing portal (same sign-in email as checkout). You can cancel renewal, update your
+            card, or download invoices there.
+          </p>
+        </div>
+      ) : null}
+      <p>
+        <a href="/" className="text-foreground font-medium underline underline-offset-4">
+          Back to list
+        </a>
+      </p>
+    </div>
+  );
+}
+
+export function UpgradePlans({
+  isPro,
+  proPlan,
+  stripeCustomerId,
+  stripeSubscriptionId,
+  stripeBillingConfigured,
+}: UpgradePlansProps) {
   const [busy, setBusy] = useState<Busy>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const q = p.get('checkout');
     if (q === 'success') {
-      toast.success('Payment received. Pro unlocks as soon as Stripe confirms (usually seconds).');
+      toast.success('Payment received. Pro unlocks when Stripe confirms — refresh if perks are not on yet.');
       window.history.replaceState({}, '', '/upgrade');
     } else if (q === 'cancel') {
       toast.message('Checkout cancelled');
       window.history.replaceState({}, '', '/upgrade');
     }
   }, []);
+
+  async function openBillingPortal() {
+    setPortalBusy(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) {
+        toast.error(data.error ?? 'Could not open billing portal');
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } finally {
+      setPortalBusy(false);
+    }
+  }
 
   async function startCheckout(plan: 'monthly' | 'lifetime') {
     setBusy(plan);
@@ -67,16 +277,49 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
   }
 
   if (isPro) {
+    const plan = proPlan && isProPlan(proPlan) ? proPlan : null;
+    const hasActiveSubscription = Boolean(stripeSubscriptionId?.trim());
+
+    if (plan === 'lifetime') {
+      return (
+        <ProMemberThanks
+          stripeCustomerId={stripeCustomerId}
+          onOpenPortal={openBillingPortal}
+          portalBusy={portalBusy}
+        />
+      );
+    }
+
+    if (plan === 'monthly' || hasActiveSubscription) {
+      return (
+        <ProMemberMonthly
+          stripeCustomerId={stripeCustomerId}
+          onOpenPortal={openBillingPortal}
+          portalBusy={portalBusy}
+        />
+      );
+    }
+
+    if (stripeCustomerId) {
+      return (
+        <ProMemberLegacy
+          stripeCustomerId={stripeCustomerId}
+          onOpenPortal={openBillingPortal}
+          portalBusy={portalBusy}
+        />
+      );
+    }
+
+    if (plan === 'complimentary') {
+      return <ProMemberComplimentary />;
+    }
+
     return (
-      <div className="text-muted-foreground mx-auto max-w-md space-y-6 text-center text-sm">
-        <p className="text-foreground text-base font-medium">You&apos;re on Pro</p>
-        <p>Categories and unlimited items are enabled.</p>
-        <p>
-          <a href="/" className="text-foreground font-medium underline underline-offset-4">
-            Back to list
-          </a>
-        </p>
-      </div>
+      <ProMemberActiveNoBillingRecord
+        stripeBillingConfigured={stripeBillingConfigured}
+        onOpenPortal={openBillingPortal}
+        portalBusy={portalBusy}
+      />
     );
   }
 
@@ -88,6 +331,22 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
           Unlock categories, unlimited todos, and lists. Pay securely with Stripe.
         </p>
       </header>
+
+      {!stripeBillingConfigured ? (
+        <div
+          role="status"
+          className="text-muted-foreground border-border/60 bg-muted/15 mx-auto max-w-xl rounded-lg border px-3 py-2.5 text-center text-xs leading-relaxed sm:text-sm"
+        >
+          Paid plans are inactive until both{' '}
+          <code className="text-foreground/90 font-mono text-[0.7rem] sm:text-xs">STRIPE_PRICE_PRO_MONTHLY</code> and{' '}
+          <code className="text-foreground/90 font-mono text-[0.7rem] sm:text-xs">STRIPE_PRICE_PRO_LIFETIME</code> are
+          set to Stripe <strong className="text-foreground">Price</strong> IDs (they start with{' '}
+          <code className="text-foreground/90 font-mono text-[0.7rem] sm:text-xs">price_</code>). A{' '}
+          <code className="text-foreground/90 font-mono text-[0.7rem] sm:text-xs">prod_</code> Product ID or a dollar
+          amount will not work. Update <code className="font-mono text-[0.7rem] sm:text-xs">.env</code> and restart{' '}
+          <code className="font-mono text-[0.7rem] sm:text-xs">npm run dev</code>.
+        </div>
+      ) : null}
 
       <div className="grid gap-5 md:grid-cols-2 md:gap-6">
         <div
@@ -102,9 +361,11 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
           </p>
           <p className="text-muted-foreground mt-2 text-sm">Cancel anytime</p>
           <ul className="text-muted-foreground mt-4 space-y-2 text-sm">
-            <li>Everything in Pro</li>
-            <li>Category filters &amp; lists</li>
-            <li>Unlimited todos</li>
+            <li>Unlimited todos and todo lists</li>
+            <li>Categories, filters, and multiple lists</li>
+            <li>Custom themes (including light &amp; dark)</li>
+            <li>Breathe desktop app — install and run from your dock</li>
+            <li>Focus mode &amp; early access to new features</li>
           </ul>
           <Button
             type="button"
@@ -129,9 +390,12 @@ export function UpgradePlans({ isPro, stripeBillingConfigured }: UpgradePlansPro
           <p className="text-foreground mt-2 text-3xl font-semibold tabular-nums">$99</p>
           <p className="text-muted-foreground mt-2 text-sm">One payment — use Pro for as long as we offer the product.</p>
           <ul className="text-muted-foreground mt-4 space-y-2 text-sm">
-            <li>Everything in Pro, forever</li>
-            <li>No renewal hassle</li>
-            <li>Helps fund development</li>
+            <li>Unlimited todos and todo lists — locked in for life</li>
+            <li>Categories, filters, and multiple lists</li>
+            <li>Custom themes (including light &amp; dark)</li>
+            <li>Breathe desktop app — install and run from your dock</li>
+            <li>Focus mode &amp; early access to new features</li>
+            <li>No renewal hassle — helps fund development</li>
           </ul>
           <Button
             type="button"

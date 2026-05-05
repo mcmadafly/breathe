@@ -14,6 +14,7 @@ import { Check, GripVertical, List, MoreHorizontal, Pencil, Plus, Trash2 } from 
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -31,6 +32,7 @@ import { sortTodoRows } from '@/lib/todo-sort';
 import { cn } from '@/lib/utils';
 import {
   FREE_TODO_LIMIT,
+  TODO_BOARD_EXPAND_SHELL_CHARS,
   TODO_LIST_NAME_MAX_LENGTH,
   TODO_BODY_MAX_LENGTH,
   TODO_CONTENT_MAX_LENGTH,
@@ -102,11 +104,15 @@ type TodoLiSharedProps = {
   hasLongTodo: boolean;
   busy: string | null;
   editingId: string | null;
-  editText: string;
+  editTitle: string;
+  editBody: string;
+  editDetailVisible: boolean;
   expanded: boolean;
   checkboxRefs: React.MutableRefObject<Map<string, HTMLButtonElement>>;
   skipEditBlurSaveRef: React.MutableRefObject<boolean>;
-  setEditText: (v: string) => void;
+  setEditTitle: (v: string) => void;
+  setEditBody: (v: string) => void;
+  setEditDetailVisible: (visible: boolean) => void;
   commitEdit: (id: string) => void | Promise<void>;
   cancelEditing: () => void;
   startEdit: (row: TodoRow) => void;
@@ -144,10 +150,14 @@ type TodoRowTextColumnProps = Pick<
   | 'row'
   | 'hasLongTodo'
   | 'editingId'
-  | 'editText'
+  | 'editTitle'
+  | 'editBody'
+  | 'editDetailVisible'
   | 'expanded'
   | 'skipEditBlurSaveRef'
-  | 'setEditText'
+  | 'setEditTitle'
+  | 'setEditBody'
+  | 'setEditDetailVisible'
   | 'commitEdit'
   | 'cancelEditing'
   | 'onToggleExpand'
@@ -158,10 +168,14 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
     row,
     hasLongTodo,
     editingId,
-    editText,
+    editTitle,
+    editBody,
+    editDetailVisible,
     expanded,
     skipEditBlurSaveRef,
-    setEditText,
+    setEditTitle,
+    setEditBody,
+    setEditDetailVisible,
     commitEdit,
     cancelEditing,
     onToggleExpand,
@@ -183,54 +197,147 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
     row.done && 'text-[#8e8e8e]/90 line-through decoration-neutral-400/70 dark:text-neutral-500',
   );
 
+  const editFieldClass = cn(
+    'field-sizing-content box-border min-h-11 w-full resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] px-4 py-3 text-[15px] leading-relaxed text-neutral-900 outline-none',
+    'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
+  );
+
   return (
     <div className="min-w-0 flex-1">
       {editingId === row.id ? (
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <textarea
-            autoFocus
-            value={editText}
-            maxLength={TODO_CONTENT_MAX_LENGTH}
-            rows={3}
-            onChange={(ev) => setEditText(ev.target.value)}
-            onKeyDown={(ev) => {
-              if (ev.key === 'Enter' && !ev.shiftKey) {
-                ev.preventDefault();
-                void commitEdit(row.id);
-              }
-              if (ev.key === 'Escape') {
-                ev.preventDefault();
-                skipEditBlurSaveRef.current = true;
-                cancelEditing();
-              }
-            }}
-            onBlur={() => {
-              if (skipEditBlurSaveRef.current) {
-                skipEditBlurSaveRef.current = false;
-                return;
-              }
-              if (editingId !== row.id) return;
-              void commitEdit(row.id);
-            }}
-            className={cn(
-              'field-sizing-content min-h-10 min-w-0 flex-1 resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] px-3 py-2 text-[15px] text-neutral-900 outline-none',
-              'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
-            )}
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="shrink-0 rounded-xl"
-            onPointerDown={() => {
-              skipEditBlurSaveRef.current = true;
-            }}
-            onClick={() => {
-              cancelEditing();
-            }}
-          >
-            Cancel
-          </Button>
+        <div
+          className="flex min-w-0 flex-1 flex-col gap-4 outline-none"
+          onBlur={(e) => {
+            if (skipEditBlurSaveRef.current) {
+              skipEditBlurSaveRef.current = false;
+              return;
+            }
+            const rel = e.relatedTarget as Node | null;
+            if (rel && e.currentTarget.contains(rel)) return;
+            void commitEdit(row.id);
+          }}
+        >
+          {!editDetailVisible ? (
+            <div className="flex min-w-0 items-start gap-3">
+              <textarea
+                autoFocus
+                aria-label="Task"
+                value={mergeTodoContent(editTitle, editBody)}
+                maxLength={TODO_CONTENT_MAX_LENGTH}
+                rows={2}
+                onChange={(ev) => {
+                  const v = ev.target.value.slice(0, TODO_CONTENT_MAX_LENGTH);
+                  const { title, body } = splitTodoContent(v);
+                  setEditTitle(title);
+                  setEditBody(body);
+                  setEditDetailVisible(body.length > 0);
+                }}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' && !ev.shiftKey) {
+                    ev.preventDefault();
+                    void commitEdit(row.id);
+                  }
+                  if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    skipEditBlurSaveRef.current = true;
+                    cancelEditing();
+                  }
+                }}
+                className={cn(editFieldClass, 'min-w-0 flex-1')}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="mt-1 shrink-0 rounded-xl px-3 py-2"
+                onPointerDown={() => {
+                  skipEditBlurSaveRef.current = true;
+                }}
+                onClick={() => {
+                  cancelEditing();
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex min-w-0 items-start gap-3">
+                <textarea
+                  autoFocus
+                  aria-label="Task title"
+                  value={editTitle}
+                  maxLength={TODO_TITLE_MAX_LENGTH}
+                  rows={2}
+                  onChange={(ev) => {
+                    const t = ev.target.value.slice(0, TODO_TITLE_MAX_LENGTH);
+                    setEditTitle(t);
+                    if (t.length < TODO_TITLE_MAX_LENGTH && editBody.trim() === '') {
+                      setEditDetailVisible(false);
+                    }
+                  }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' && !ev.shiftKey) {
+                      ev.preventDefault();
+                      void commitEdit(row.id);
+                    }
+                    if (ev.key === 'Escape') {
+                      ev.preventDefault();
+                      skipEditBlurSaveRef.current = true;
+                      cancelEditing();
+                    }
+                  }}
+                  className={cn(editFieldClass, 'min-w-0 flex-1')}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="mt-1 shrink-0 rounded-xl px-3 py-2"
+                  onPointerDown={() => {
+                    skipEditBlurSaveRef.current = true;
+                  }}
+                  onClick={() => {
+                    cancelEditing();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+              <div className="min-w-0">
+                <Label htmlFor={`todo-body-${row.id}`} className="mb-2 block text-xs font-medium text-[#f97316]">
+                  More detail
+                </Label>
+                <textarea
+                  id={`todo-body-${row.id}`}
+                  aria-label="Task detail"
+                  value={editBody}
+                  maxLength={TODO_BODY_MAX_LENGTH}
+                  rows={3}
+                  onChange={(ev) => {
+                    const b = ev.target.value.slice(0, TODO_BODY_MAX_LENGTH);
+                    setEditBody(b);
+                    if (b.trim() === '' && editTitle.length <= TODO_TITLE_MAX_LENGTH) {
+                      setEditDetailVisible(false);
+                    }
+                  }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+                      ev.preventDefault();
+                      void commitEdit(row.id);
+                    }
+                    if (ev.key === 'Escape') {
+                      ev.preventDefault();
+                      skipEditBlurSaveRef.current = true;
+                      cancelEditing();
+                    }
+                  }}
+                  placeholder="Optional continuation…"
+                  className={editFieldClass}
+                />
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div
@@ -283,11 +390,15 @@ function StaticTodoLi(props: TodoLiSharedProps) {
     hasLongTodo,
     busy,
     editingId,
-    editText,
+    editTitle,
+    editBody,
+    editDetailVisible,
     expanded,
     checkboxRefs,
     skipEditBlurSaveRef,
-    setEditText,
+    setEditTitle,
+    setEditBody,
+    setEditDetailVisible,
     commitEdit,
     cancelEditing,
     startEdit,
@@ -297,16 +408,16 @@ function StaticTodoLi(props: TodoLiSharedProps) {
   } = props;
   const canExpand = todoRowCanExpand(row);
   const editing = editingId === row.id;
+  const vAlign = editing || expanded ? 'items-start' : 'items-center';
   return (
-    <li
-      className={cn('group flex gap-0', !expanded || editing ? 'items-center' : 'items-start')}
-    >
+    <li className={cn('group flex gap-0', vAlign)}>
       <div className={cn(TODO_ROW_GUTTER_CLASS, 'pointer-events-none')} aria-hidden />
       <div
         className={cn(
-          'flex min-w-0 flex-1 gap-2.5 rounded-2xl py-1.5 pl-2 pr-2.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
-          !expanded || editing ? 'items-center' : 'items-start',
-          hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
+          'flex min-w-0 flex-1 rounded-2xl transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+          editing ? 'gap-3 py-3 pl-3 pr-3 sm:py-3.5 sm:pl-4 sm:pr-3.5' : 'gap-2.5 py-2.5 pl-2 pr-2.5',
+          vAlign,
+          hasLongTodo && !editing ? 'min-h-[2.75rem]' : !editing ? 'min-h-[2.5rem]' : null,
           editingId !== row.id && (!canExpand || expanded) && 'cursor-pointer',
         )}
         onClick={(e) => {
@@ -334,26 +445,31 @@ function StaticTodoLi(props: TodoLiSharedProps) {
           void onToggle(row.id, !row.done);
         }}
         className={cn(
-          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-none',
+          'flex size-5 shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
+          editing && 'mt-1',
           row.done
             ? cn(
-                'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900',
+                'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900',
                 '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100',
               )
             : 'border-neutral-300 bg-transparent dark:border-neutral-500',
         )}
       >
-        {row.done ? <Check className="size-2.5 stroke-[3]" strokeLinecap="round" /> : null}
+        {row.done ? <Check className="size-3 stroke-[2.5]" strokeLinecap="round" /> : null}
       </button>
       <TodoRowTextColumn
         row={row}
         hasLongTodo={hasLongTodo}
         editingId={editingId}
-        editText={editText}
+        editTitle={editTitle}
+        editBody={editBody}
+        editDetailVisible={editDetailVisible}
         expanded={expanded}
         skipEditBlurSaveRef={skipEditBlurSaveRef}
-        setEditText={setEditText}
+        setEditTitle={setEditTitle}
+        setEditBody={setEditBody}
+        setEditDetailVisible={setEditDetailVisible}
         commitEdit={commitEdit}
         cancelEditing={cancelEditing}
         onToggleExpand={onToggleExpand}
@@ -362,6 +478,7 @@ function StaticTodoLi(props: TodoLiSharedProps) {
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
           expanded && !editing && 'pt-0.5',
+          editing && 'self-start pt-1.5',
         )}
       >
         <Button
@@ -383,7 +500,7 @@ function StaticTodoLi(props: TodoLiSharedProps) {
           <Trash2 className="size-4" />
         </Button>
       </div>
-      </div>
+    </div>
     </li>
   );
 }
@@ -394,11 +511,15 @@ function SortableTodoLi(props: TodoLiSharedProps) {
     hasLongTodo,
     busy,
     editingId,
-    editText,
+    editTitle,
+    editBody,
+    editDetailVisible,
     expanded,
     checkboxRefs,
     skipEditBlurSaveRef,
-    setEditText,
+    setEditTitle,
+    setEditBody,
+    setEditDetailVisible,
     commitEdit,
     cancelEditing,
     startEdit,
@@ -408,6 +529,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
   } = props;
   const disabled = editingId === row.id || busy === row.id;
   const editing = editingId === row.id;
+  const vAlign = editing || expanded ? 'items-start' : 'items-center';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled,
@@ -427,12 +549,12 @@ function SortableTodoLi(props: TodoLiSharedProps) {
     <li
       ref={setNodeRef}
       style={style}
-      className={cn('group flex gap-0', !expanded || editing ? 'items-center' : 'items-start')}
+      className={cn('group flex gap-0', vAlign)}
     >
       <div
         className={cn(
           TODO_ROW_GUTTER_CLASS,
-          expanded && !editing ? 'self-start pt-0.5' : 'items-center',
+          editing || expanded ? 'self-start pt-0.5' : 'items-center',
         )}
       >
         <button
@@ -458,9 +580,10 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       </div>
       <div
         className={cn(
-          'flex min-w-0 flex-1 gap-2.5 rounded-2xl py-1.5 pl-2 pr-2.5 transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
-          !expanded || editing ? 'items-center' : 'items-start',
-          hasLongTodo ? 'min-h-[2.75rem]' : 'min-h-[2.5rem]',
+          'flex min-w-0 flex-1 rounded-2xl transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
+          editing ? 'gap-3 py-3 pl-3 pr-3 sm:py-3.5 sm:pl-4 sm:pr-3.5' : 'gap-2.5 py-2.5 pl-2 pr-2.5',
+          vAlign,
+          hasLongTodo && !editing ? 'min-h-[2.75rem]' : !editing ? 'min-h-[2.5rem]' : null,
           editingId !== row.id &&
             !disabled &&
             (!todoRowCanExpand(row) || expanded) &&
@@ -491,26 +614,31 @@ function SortableTodoLi(props: TodoLiSharedProps) {
           void onToggle(row.id, !row.done);
         }}
         className={cn(
-          'flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border transition-none',
+          'flex size-5 shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
+          editing && 'mt-1',
           row.done
             ? cn(
-                'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900',
+                'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900',
                 '[@media(hover:hover)]:opacity-45 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100 focus-visible:opacity-100',
               )
             : 'border-neutral-300 bg-transparent dark:border-neutral-500',
         )}
       >
-        {row.done ? <Check className="size-2.5 stroke-[3]" strokeLinecap="round" /> : null}
+        {row.done ? <Check className="size-3 stroke-[2.5]" strokeLinecap="round" /> : null}
       </button>
       <TodoRowTextColumn
         row={row}
         hasLongTodo={hasLongTodo}
         editingId={editingId}
-        editText={editText}
+        editTitle={editTitle}
+        editBody={editBody}
+        editDetailVisible={editDetailVisible}
         expanded={expanded}
         skipEditBlurSaveRef={skipEditBlurSaveRef}
-        setEditText={setEditText}
+        setEditTitle={setEditTitle}
+        setEditBody={setEditBody}
+        setEditDetailVisible={setEditDetailVisible}
         commitEdit={commitEdit}
         cancelEditing={cancelEditing}
         onToggleExpand={onToggleExpand}
@@ -519,6 +647,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
           expanded && !editing && 'pt-0.5',
+          editing && 'self-start pt-1.5',
         )}
       >
         <Button
@@ -588,7 +717,9 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editDetailVisible, setEditDetailVisible] = useState(false);
   const [expandedTodoIds, setExpandedTodoIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<FilterId>('all');
   const [listsOpen, setListsOpen] = useState(false);
@@ -796,11 +927,17 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     return [{ id: 'all' as const, label: 'All' }, ...lists.map((l) => ({ id: l.id, label: l.name }))];
   }, [lists]);
 
-  const LONG_TITLE_THRESHOLD = 88;
   const hasLongTodo = useMemo(
-    () => items.some((t) => t.title.length + t.body.length > LONG_TITLE_THRESHOLD),
+    () => items.some((t) => t.title.length + t.body.length > TODO_BOARD_EXPAND_SHELL_CHARS),
     [items],
   );
+
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('todo-board-wide', hasLongTodo);
+    return () => {
+      document.documentElement.classList.remove('todo-board-wide');
+    };
+  }, [hasLongTodo]);
 
   const categoriesLocked = !isPro;
 
@@ -960,24 +1097,26 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
   }
 
   async function commitEdit(id: string) {
-    const t = editText.trim();
-    if (!t) {
+    const nextTitle = editTitle.trim();
+    const nextBody = editBody.trim();
+    if (!nextTitle) {
       setEditingId(null);
+      setEditDetailVisible(false);
       return;
     }
     const prevRow = items.find((x) => x.id === id);
-    const prev = prevRow ? mergeTodoContent(prevRow.title, prevRow.body) : undefined;
-    if (prev !== undefined && t === prev) {
+    if (prevRow && prevRow.title === nextTitle && prevRow.body === nextBody) {
       setEditingId(null);
+      setEditDetailVisible(false);
       return;
     }
-    const { title: nextTitle, body: nextBody } = splitTodoContent(t);
     setEditingId(null);
+    setEditDetailVisible(false);
     if (prevRow) {
       setItems((p) => p.map((x) => (x.id === id ? { ...x, title: nextTitle, body: nextBody } : x)));
     }
     setBusy(id);
-    const res = await actions.updateTodoTitle({ id, title: t });
+    const res = await actions.updateTodoTitle({ id, title: nextTitle, body: nextBody });
     setBusy(null);
     if (res.error || !res.data) {
       if (prevRow) {
@@ -993,11 +1132,31 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
 
   function cancelEditing() {
     setEditingId(null);
+    setEditTitle('');
+    setEditBody('');
+    setEditDetailVisible(false);
   }
 
   function startEdit(row: TodoRow) {
     setEditingId(row.id);
-    setEditText(mergeTodoContent(row.title, row.body));
+    if (row.body.trim().length > 0) {
+      setEditTitle(row.title);
+      setEditBody(row.body);
+      setEditDetailVisible(true);
+      return;
+    }
+    if (/[\r\n]/.test(row.title)) {
+      const lines = row.title.split(/\r?\n/);
+      const title0 = (lines[0] ?? '').trimEnd();
+      const body0 = lines.slice(1).join('\n');
+      setEditTitle(title0);
+      setEditBody(body0);
+      setEditDetailVisible(body0.trim().length > 0 || title0.length > TODO_TITLE_MAX_LENGTH);
+      return;
+    }
+    setEditTitle(row.title);
+    setEditBody('');
+    setEditDetailVisible(row.title.length > TODO_TITLE_MAX_LENGTH);
   }
 
   const onToggleExpand = useCallback((id: string) => {
@@ -1218,6 +1377,8 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     </div>
   );
 
+  const noTodosYet = items.length === 0;
+
   const listsDrawer = (
     <div className="hidden shrink-0 gap-0 lg:flex lg:flex-row lg:items-start">
       <button
@@ -1227,7 +1388,8 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
         aria-controls="lists-drawer-panel"
         className={cn(
           // self-start: do not stretch to drawer height (sidebar stays tall when collapsed).
-          'flex min-h-[11rem] shrink-0 cursor-pointer flex-col items-center justify-start self-start border-0 bg-transparent p-0 shadow-none outline-none',
+          'flex shrink-0 cursor-pointer flex-col items-center justify-start self-start border-0 bg-transparent p-0 shadow-none outline-none',
+          noTodosYet ? 'min-h-0' : 'min-h-[11rem]',
           'lg:mt-2 lg:min-h-0 lg:pt-0',
           'text-xs font-medium tracking-tight text-[#8e8e8e] transition-colors duration-150 ease-out hover:text-[#f97316]',
           'focus-visible:ring-2 focus-visible:ring-neutral-900/15 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -1261,10 +1423,14 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
     hasLongTodo,
     busy,
     editingId,
-    editText,
+    editTitle,
+    editBody,
+    editDetailVisible,
     checkboxRefs,
     skipEditBlurSaveRef,
-    setEditText,
+    setEditTitle,
+    setEditBody,
+    setEditDetailVisible,
     commitEdit,
     cancelEditing,
     startEdit,
@@ -1428,15 +1594,27 @@ export function TodoBoard({ initialTodos, initialLists, isPro }: Props) {
         >
           <div
             className={cn(
-              'flex min-h-0 flex-1 flex-col gap-3 overflow-x-visible rounded-[1.25rem] border pt-4 pb-4 pr-4 pl-12',
+              'flex min-h-0 flex-1 flex-col overflow-x-visible rounded-[1.35rem] border pr-4',
+              noTodosYet ? 'pl-4' : 'pl-12',
+              noTodosYet ? 'gap-1 pb-4 pt-2' : 'gap-3 pb-4 pt-4',
               'border-black/[0.06] bg-white shadow-sm',
-              'dark:border-white/[0.07] dark:bg-[#1e1e1e] dark:shadow-none',
+              'dark:border-white/[0.06] dark:bg-[#242424] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]',
+              'dark:ring-1 dark:ring-white/[0.05]',
             )}
           >
-            <div className="lg:hidden -mt-4 mb-1 -ml-12 -mr-4 px-4 pt-4">{mobileCategoryTablist}</div>
-            {listSection}
+            <div
+              className={cn(
+                'lg:hidden -mt-4 mb-1 -mr-4 px-4',
+                noTodosYet ? '-ml-4 pt-2' : '-ml-12 pt-4',
+              )}
+            >
+              {mobileCategoryTablist}
+            </div>
+            <div className={cn(noTodosYet ? '' : '-mx-1 min-h-0 rounded-xl px-1 py-0.5')}>
+              {listSection}
+            </div>
 
-            <div className="py-3">{formOrUpgrade}</div>
+            <div className={cn(!noTodosYet && 'py-3')}>{formOrUpgrade}</div>
           </div>
         </div>
       </div>

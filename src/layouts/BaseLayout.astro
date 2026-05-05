@@ -10,14 +10,18 @@ import { Toaster } from '@/components/ui/sonner';
 interface Props {
   title?: string;
   session?: AppSession | null;
-  /** When `false`, show an Upgrade control (pass from authenticated routes). */
+  /** Pass through for header: Pro badge vs Upgrade link. */
   isPro?: boolean;
   /** Cookie-backed anonymous user — header shows Sign in instead of account menu. */
   isAnonymous?: boolean;
   /** When `false`, hide the sticky site header (e.g. marketing home). */
   showHeader?: boolean;
-  /** Wider main column for dense UIs (e.g. todo board + sidebar). */
+  /** Wider main column for dense UIs (e.g. todo board + upgrade). */
   wideContent?: boolean;
+  /** Home only: narrow shell on desktop until todos are long; widened client-side from TodoBoard. */
+  adaptiveShell?: boolean;
+  /** SSR hint when `adaptiveShell`: any todo already exceeds `TODO_BOARD_EXPAND_SHELL_CHARS`. */
+  todoBoardInitiallyWide?: boolean;
 }
 
 const {
@@ -27,15 +31,21 @@ const {
   isAnonymous = false,
   showHeader = true,
   wideContent = false,
+  adaptiveShell = false,
+  todoBoardInitiallyWide = false,
 } = Astro.props;
 
 const skipAuth = import.meta.env.SKIP_AUTH === 'true';
 const homeHref = '/';
-const showUpgrade = isPro === false;
+const isProMember = isPro === true;
 ---
 
 <!doctype html>
-<html lang="en" suppressHydrationWarning>
+<html
+  lang="en"
+  suppressHydrationWarning
+  class:list={[adaptiveShell && 'todo-board-page', adaptiveShell && todoBoardInitiallyWide && 'todo-board-wide']}
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -60,6 +70,11 @@ const showUpgrade = isPro === false;
         document.documentElement.classList.toggle('dark', dark);
       })();
     </script>
+    {!adaptiveShell ? (
+      <script is:inline>
+        document.documentElement.classList.remove('zen-mode');
+      </script>
+    ) : null}
     <script is:inline>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
@@ -67,35 +82,77 @@ const showUpgrade = isPro === false;
         });
       }
     </script>
+    <script is:inline>
+      (function () {
+        var KEY = 'scribbbles-dev-chunk-reload';
+        function maybeReload(reason) {
+          try {
+            if (sessionStorage.getItem(KEY)) return;
+            sessionStorage.setItem(KEY, '1');
+            console.warn('[scribbbles] Recovering from stale dev chunk:', reason);
+            window.location.reload();
+          } catch (_) {}
+        }
+        window.addEventListener('unhandledrejection', function (ev) {
+          var r = ev.reason;
+          var msg = r && r.message ? String(r.message) : String(r || '');
+          if (
+            msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+            msg.indexOf('Importing a module script failed') !== -1 ||
+            msg.indexOf('error loading dynamically imported module') !== -1
+          ) {
+            ev.preventDefault();
+            maybeReload(msg.slice(0, 120));
+          }
+        });        
+        window.addEventListener(
+          'error',
+          function (ev) {
+            var t = ev.target;
+            if (!t || t === window) return;
+            var src = t.src || t.href;
+            if (!src || typeof src !== 'string') return;
+            if (src.indexOf('/@vite/') !== -1 || src.indexOf('/node_modules/.vite/') !== -1) {
+              maybeReload(src.split('/').pop() || 'vite asset');
+            }
+          },
+          true,
+        );
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            try {
+              sessionStorage.removeItem(KEY);
+            } catch (_) {}
+          }, 10000);
+        });
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground flex min-h-screen flex-col antialiased">
     {showHeader ? (
-      <header
-        class="bg-background/80 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 min-h-14 backdrop-blur"
-      >
-        <SiteHeader
-          client:only="react"
-          homeHref={homeHref}
-          showUpgrade={showUpgrade}
-          skipAuth={skipAuth}
-          isAnonymous={isAnonymous}
-          wideLayout={wideContent}
-          userName={session?.user?.name ?? undefined}
-          userEmail={session?.user?.email ?? undefined}
-          userImage={session?.user?.image ?? undefined}
-        />
-      </header>
+      <SiteHeader
+        client:load
+        homeHref={homeHref}
+        isProMember={isProMember}
+        skipAuth={skipAuth}
+        isAnonymous={isAnonymous}
+        wideLayout={wideContent}
+        zenModeToggle={adaptiveShell}
+        userName={session?.user?.name ?? undefined}
+        userEmail={session?.user?.email ?? undefined}
+        userImage={session?.user?.image ?? undefined}
+      />
     ) : null}
     <main
       class:list={[
         'mx-auto w-full flex-1 px-3',
-        wideContent ? 'max-w-3xl md:max-w-4xl lg:max-w-5xl' : 'max-w-3xl',
+        wideContent ? 'board-shell-wide' : 'max-w-3xl',
         showHeader ? 'py-5 sm:py-6' : 'flex flex-col items-center justify-center py-10 sm:py-12',
       ]}
     >
       <slot />
     </main>
-    <div class="mt-auto pt-8 sm:pt-10">
+    <div class="site-footer-wrap mt-auto pt-8 sm:pt-10">
       <footer class="text-muted-foreground py-5 text-center text-xs leading-relaxed">
         <div class="mx-auto max-w-3xl px-3">
           <p>

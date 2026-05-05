@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `stripe_subscription_id` text;

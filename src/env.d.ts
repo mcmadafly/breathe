@@ -5,6 +5,12 @@ declare namespace App {
   interface Locals {
     session: import('@/lib/auth/session').AppSession | null;
     isPro: boolean;
+    /** `monthly` | `lifetime` (paid) | `complimentary` (free unlock); null if not Pro. */
+    proPlan: string | null;
+    /** Stripe Customer id when checkout created a customer; used for Billing Portal. */
+    stripeCustomerId: string | null;
+    /** Monthly subscription id when applicable; syncs from Checkout / subscription webhooks. */
+    stripeSubscriptionId: string | null;
     /** True when using cookie-backed anonymous user (`anon_*` id), before Clerk sign-in. */
     isAnonymous: boolean;
   }

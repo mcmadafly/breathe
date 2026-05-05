@@ -33,7 +33,8 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm run preview` | Preview the build locally |
 | `npm run deploy` | Build Pages bundle, then deploy (default Pages project **`breathe`**; set `CLOUDFLARE_PAGES_PROJECT` if yours differs) |
 | `npm run deploy:worker` | Worker deploy (`astro build` + `wrangler deploy`) |
-| `npm run cf:whoami` | Verify Wrangler is authenticated (same env vars as deploy) |
+| `npm run cf:whoami` | Verify Wrangler auth and **Account ID** (compare to GitHub `CLOUDFLARE_ACCOUNT_ID`) |
+| `npm run cf:pages:list` | List Pages projects in the authenticated account |
 | `npm run db:push` | Apply Drizzle schema to the configured database |
 | `npm test` | Vitest (unit + component as configured) |
 | `npm run test:e2e` | Rebuilds for E2E env, runs Playwright (preview + screenshots) |

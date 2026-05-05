@@ -16,6 +16,7 @@
     "build:pages": "astro build && node scripts/cloudflare-pages-bundle.mjs",
     "deploy": "npm run build:pages && rm -rf .wrangler dist/cf-pages/.wrangler && sh -c 'cd dist/cf-pages && wrangler pages deploy . --project-name=${CLOUDFLARE_PAGES_PROJECT:-breathe}'",
     "cf:whoami": "npx wrangler whoami",
+    "cf:pages:list": "npx wrangler pages project list",
     "deploy:worker": "astro build && wrangler deploy",
     "preview": "astro preview",
     "preview:worker": "wrangler dev",

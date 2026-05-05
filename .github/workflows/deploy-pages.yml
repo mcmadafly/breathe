@@ -7,7 +7,10 @@
 #       Permissions → Account → Cloudflare Pages → Edit (not “Read”; deploy needs write).
 #       Account resources → this account, or All accounts.
 #       If deploy still 403s, add Account → Workers Scripts → Edit (SSR / Pages Functions).
-#   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → same account as your Pages project (sidebar API section).
+#   · CLOUDFLARE_ACCOUNT_ID — Must match the **same** Cloudflare account where the Pages project lives
+#     (Workers & Pages → right sidebar “Account ID”). If CI reports 8000007 “project not found” but locally
+#     `wrangler pages project create breathe` says 8000002 “already exists”, your GitHub CLOUDFLARE_ACCOUNT_ID
+#     (or token account scope) points at a **different** account than your local Wrangler session — fix the secret.
 #
 # Optional:
 #   · Repository variable CLOUDFLARE_PAGES_PROJECT — Pages **project name** in the dashboard (not the same as

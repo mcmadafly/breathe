@@ -3,9 +3,20 @@
 # this workflow only needs enough env for `astro build` to bundle (Turso defaults to `:memory:` in CI when the secret is unset).
 #
 # Required repo secrets for deploy:
-#   · CLOUDFLARE_API_TOKEN — API token with Account → Cloudflare Pages → Edit (and Workers if needed).
-#     https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
-#   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → account id in the dashboard sidebar.
+#   · CLOUDFLARE_API_TOKEN — Custom token (My Profile → API Tokens):
+#       Permissions → Account → Cloudflare Pages → Edit (not “Read”; deploy needs write).
+#       Account resources → this account, or All accounts.
+#       If deploy still 403s, add Account → Workers Scripts → Edit (SSR / Pages Functions).
+#   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → same account as project `spirare` (sidebar API section).
+#
+# Troubleshooting 403 / Authentication error [code: 10000] on pages/projects/spirare:
+#   · Token missing Cloudflare Pages → Edit, or scoped to the wrong account.
+#   · Project name mismatch: dashboard must have a Pages project exactly named `spirare`.
+#   · Ignore trailing /memberships 400 in Wrangler logs — common after a failed call with some tokens.
+#
+# References:
+#   · https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+#   · https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/
 
 name: Deploy Cloudflare Pages
 

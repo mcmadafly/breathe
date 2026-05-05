@@ -2,6 +2,8 @@
 
 A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe. Build. Repeat.**
 
+Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Pages / Worker** project name defaults to **`breathe`** (override with `CLOUDFLARE_PAGES_PROJECT` if needed).
+
 - **Site / product:** [Taecho](https://taecho.co) — source and issues live on [GitHub](https://github.com/mcmadafly/breathe). For a wider intro to Taecho (what we build, how we think about tools like Breathe), see **[taecho.io](https://taecho.io/)**.
 - **License:** [MIT](LICENSE) (copyright Taecho; see file for full text). In the running app, **`/mit-license`** shows the same license for easy reading.
 
@@ -11,7 +13,7 @@ A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe
 - **Auth:** [Clerk](https://clerk.com/) (sign-in / sign-up), optional cookie-backed anonymous session where routes allow it.
 - **Data:** [Turso](https://turso.tech/) (libSQL) + [Drizzle ORM](https://orm.drizzle.team/); migrations under `drizzle/`.
 - **App shell:** [Astro](https://astro.build/) (server output) + React islands, [Tailwind CSS](https://tailwindcss.com/) v4, shadcn-style UI, theme toggle, toasts.
-- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`. Create a **Pages** project in the dashboard whose name matches `CLOUDFLARE_PAGES_PROJECT` (default `spirare`), or set the GitHub **Actions variable** `CLOUDFLARE_PAGES_PROJECT` to your existing project name.
+- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`. Create a **Pages** project named **`breathe`** (or set **`CLOUDFLARE_PAGES_PROJECT`** / the GitHub Actions variable to match the name in **Workers & Pages**).
 - **PWA:** Web app manifest and service worker for installable, offline-friendly static assets.
 
 Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` gates compile-time E2E helpers (e.g. internal probe routes).
@@ -29,7 +31,7 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm run dev` | Dev server (default [localhost:4321](http://localhost:4321)) |
 | `npm run build` | Production build to `./dist/` |
 | `npm run preview` | Preview the build locally |
-| `npm run deploy` | Build Pages bundle, then deploy (set `CLOUDFLARE_PAGES_PROJECT` if your Cloudflare Pages name is not `spirare`) |
+| `npm run deploy` | Build Pages bundle, then deploy (default Pages project **`breathe`**; set `CLOUDFLARE_PAGES_PROJECT` if yours differs) |
 | `npm run deploy:worker` | Worker deploy (`astro build` + `wrangler deploy`) |
 | `npm run cf:whoami` | Verify Wrangler is authenticated (same env vars as deploy) |
 | `npm run db:push` | Apply Drizzle schema to the configured database |

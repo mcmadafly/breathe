@@ -11,8 +11,7 @@
 #
 # Optional (recommended if you see 404 / code 8000007 “project not found”):
 #   · Repository variable CLOUDFLARE_PAGES_PROJECT — must equal the Pages project name in the dashboard
-#     (Workers & Pages → your app). Defaults to spirare when unset. Create that project first, or set this
-#     to the name you already use (e.g. breathe).
+#     (Workers & Pages → your app). Defaults to **breathe** when unset (production: spirare.io).
 #
 # Troubleshooting 403 / Authentication error [code: 10000]:
 #   · Token missing Cloudflare Pages → Edit, or scoped to the wrong account.
@@ -36,8 +35,8 @@ jobs:
       # Used by `astro build` / bundle only; wrangler-action sets auth for deploy separately.
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # Repo “Variables” → CLOUDFLARE_PAGES_PROJECT, or default spirare (must exist in dashboard).
-      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT != '' && vars.CLOUDFLARE_PAGES_PROJECT || 'spirare' }}
+      # Repo “Variables” → CLOUDFLARE_PAGES_PROJECT, or default breathe (must exist in dashboard).
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT != '' && vars.CLOUDFLARE_PAGES_PROJECT || 'breathe' }}
       # Empty / missing secret → in-memory DB so `npm run build:pages` can bundle without a live Turso URL.
       TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL != '' && secrets.TURSO_DATABASE_URL || ':memory:' }}
       TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
@@ -84,4 +83,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4'
           workingDirectory: dist/cf-pages
-          command: pages deploy . --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT != '' && vars.CLOUDFLARE_PAGES_PROJECT || 'spirare' }}
+          command: pages deploy . --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT != '' && vars.CLOUDFLARE_PAGES_PROJECT || 'breathe' }}

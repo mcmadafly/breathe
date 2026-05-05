@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Must match the Cloudflare Pages project name (dashboard). Override via CLOUDFLARE_PAGES_PROJECT (CI: repo variable). */
-const pagesProjectName = (process.env.CLOUDFLARE_PAGES_PROJECT ?? '').trim() || 'spirare';
+const pagesProjectName = (process.env.CLOUDFLARE_PAGES_PROJECT ?? '').trim() || 'breathe';
 const clientDir = path.join(root, 'dist', 'client');
 const serverDir = path.join(root, 'dist', 'server');
 const outDir = path.join(root, 'dist', 'cf-pages');

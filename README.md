@@ -13,7 +13,7 @@ Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Pages / Worker** 
 - **Auth:** [Clerk](https://clerk.com/) (sign-in / sign-up), optional cookie-backed anonymous session where routes allow it.
 - **Data:** [Turso](https://turso.tech/) (libSQL) + [Drizzle ORM](https://orm.drizzle.team/); migrations under `drizzle/`.
 - **App shell:** [Astro](https://astro.build/) (server output) + React islands, [Tailwind CSS](https://tailwindcss.com/) v4, shadcn-style UI, theme toggle, toasts.
-- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`. Create a **Pages** project named **`breathe`** (or set **`CLOUDFLARE_PAGES_PROJECT`** / the GitHub Actions variable to match the name in **Workers & Pages**).
+- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`. **Pages project name** in the dashboard defaults to **`breathe`** (separate from a standalone Worker name). CI runs `wrangler pages project create` before deploy if the project does not exist. Set **`CLOUDFLARE_PAGES_PROJECT`** if your dashboard name differs.
 - **PWA:** Web app manifest and service worker for installable, offline-friendly static assets.
 
 Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` gates compile-time E2E helpers (e.g. internal probe routes).

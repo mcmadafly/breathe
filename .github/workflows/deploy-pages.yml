@@ -9,9 +9,11 @@
 #       If deploy still 403s, add Account → Workers Scripts → Edit (SSR / Pages Functions).
 #   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → same account as your Pages project (sidebar API section).
 #
-# Optional (recommended if you see 404 / code 8000007 “project not found”):
-#   · Repository variable CLOUDFLARE_PAGES_PROJECT — must equal the Pages project name in the dashboard
-#     (Workers & Pages → your app). Defaults to **breathe** when unset (production: spirare.io).
+# Optional:
+#   · Repository variable CLOUDFLARE_PAGES_PROJECT — Pages **project name** in the dashboard (not the same as
+#     a Worker script name). Defaults to **breathe** when unset (production site: spirare.io).
+#     The workflow runs `wrangler pages project create` first so the first deploy can succeed even when
+#     the project did not exist yet.
 #
 # Troubleshooting 403 / Authentication error [code: 10000]:
 #   · Token missing Cloudflare Pages → Edit, or scoped to the wrong account.
@@ -73,6 +75,11 @@ jobs:
 
       - name: Cloudflare Pages project name
         run: echo "Deploying to Pages project — $CLOUDFLARE_PAGES_PROJECT"
+
+      - name: Create Cloudflare Pages project if missing
+        run: |
+          npx wrangler pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch main || \
+            echo "::notice::pages project create non-zero exit (project often already exists); continuing."
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

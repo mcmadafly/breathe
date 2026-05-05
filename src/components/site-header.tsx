@@ -1,4 +1,4 @@
-import { BadgeCheck, Circle, LogOut, Menu, Moon, Sparkles, Sun } from 'lucide-react';
+import { Circle, LogOut, Menu, Moon, Sun } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -18,7 +18,7 @@ import { useBreathingWordmark } from '@/hooks/use-breathing-wordmark';
 import { cn } from '@/lib/utils';
 
 const upgradeClass = cn(
-  'focus-visible:ring-ring inline-flex shrink-0 items-center gap-0.5 rounded-md border text-[10px] font-medium leading-none outline-none transition-all',
+  'focus-visible:ring-ring inline-flex shrink-0 items-center rounded-md border text-[10px] font-medium leading-none outline-none transition-all',
   'border-white/20 bg-white/10 px-2 py-0.5 text-foreground/75 shadow-none backdrop-blur-[2px]',
   'hover:border-[#f97316] hover:bg-[#f97316] hover:text-white hover:text-opacity-100',
   'dark:border-white/15 dark:bg-white/10 dark:text-foreground/75',
@@ -27,7 +27,7 @@ const upgradeClass = cn(
 );
 
 const proBadgeClass = cn(
-  'focus-visible:ring-ring inline-flex shrink-0 items-center gap-0.5 rounded-md border text-[10px] font-semibold leading-none uppercase tracking-wide outline-none transition-all',
+  'focus-visible:ring-ring inline-flex shrink-0 items-center rounded-md border text-[10px] font-semibold leading-none uppercase tracking-wide outline-none transition-all',
   'border-[#f97316]/40 bg-[#f97316]/12 px-2 py-0.5 text-[#c2410c] shadow-none',
   'dark:border-[#f97316]/35 dark:bg-[#f97316]/15 dark:text-[#fdba74]',
   'hover:border-[#f97316] hover:bg-[#f97316] hover:text-white',
@@ -158,14 +158,7 @@ export function SiteHeader({
                 {menuDark ? 'Light mode' : 'Dark mode'}
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <a href="/upgrade" className="inline-flex items-center">
-                  {isProMember ? (
-                    <BadgeCheck className="mr-2 size-4" aria-hidden />
-                  ) : (
-                    <Sparkles className="mr-2 size-4" aria-hidden />
-                  )}
-                  {isProMember ? 'Pro plan' : 'Upgrade'}
-                </a>
+                <a href="/upgrade">{isProMember ? 'Pro plan' : 'Upgrade'}</a>
               </DropdownMenuItem>
               {showAnonSignIn ? (
                 <>
@@ -239,12 +232,10 @@ export function SiteHeader({
         </HoverCard>
         {isProMember ? (
           <a href="/upgrade" className={cn(proBadgeClass, 'shrink-0')} title="Your Pro plan">
-            <BadgeCheck className="size-3 opacity-90" strokeWidth={2.25} aria-hidden />
             Pro
           </a>
         ) : (
           <a href="/upgrade" className={cn(upgradeClass, 'shrink-0')}>
-            <Sparkles className="size-3 opacity-90" strokeWidth={2.25} aria-hidden />
             Upgrade
           </a>
         )}

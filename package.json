@@ -14,7 +14,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "build:pages": "astro build && node scripts/cloudflare-pages-bundle.mjs",
-    "deploy": "npm run build:pages && rm -rf .wrangler dist/cf-pages/.wrangler && (cd dist/cf-pages && wrangler pages deploy . --project-name=spirare)",
+    "deploy": "npm run build:pages && rm -rf .wrangler dist/cf-pages/.wrangler && sh -c 'cd dist/cf-pages && wrangler pages deploy . --project-name=${CLOUDFLARE_PAGES_PROJECT:-spirare}'",
     "cf:whoami": "npx wrangler whoami",
     "deploy:worker": "astro build && wrangler deploy",
     "preview": "astro preview",

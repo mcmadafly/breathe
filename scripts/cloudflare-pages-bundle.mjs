@@ -12,6 +12,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** Must match the Cloudflare Pages project name (dashboard). Override via CLOUDFLARE_PAGES_PROJECT (CI: repo variable). */
+const pagesProjectName = (process.env.CLOUDFLARE_PAGES_PROJECT ?? '').trim() || 'spirare';
 const clientDir = path.join(root, 'dist', 'client');
 const serverDir = path.join(root, 'dist', 'server');
 const outDir = path.join(root, 'dist', 'cf-pages');
@@ -46,7 +48,7 @@ await writeFile(
   `${JSON.stringify(
     {
       $schema: '../../node_modules/wrangler/config-schema.json',
-      name: 'spirare',
+      name: pagesProjectName,
       pages_build_output_dir: '.',
       compatibility_date: '2025-05-01',
       compatibility_flags: ['nodejs_compat'],
@@ -56,4 +58,6 @@ await writeFile(
   )}\n`,
 );
 
-console.log('cloudflare-pages-bundle: wrote dist/cf-pages (cd dist/cf-pages && wrangler pages deploy .)');
+console.log(
+  `cloudflare-pages-bundle: wrote dist/cf-pages (wrangler pages deploy . --project-name=${pagesProjectName})`,
+);

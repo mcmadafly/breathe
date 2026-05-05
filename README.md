@@ -29,7 +29,9 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm run dev` | Dev server (default [localhost:4321](http://localhost:4321)) |
 | `npm run build` | Production build to `./dist/` |
 | `npm run preview` | Preview the build locally |
-| `npm run deploy` / `deploy:worker` | Cloudflare Pages / Worker deploy (see scripts) |
+| `npm run deploy` | Build Pages bundle, then `wrangler pages deploy` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in the environment) |
+| `npm run deploy:worker` | Worker deploy (`astro build` + `wrangler deploy`) |
+| `npm run cf:whoami` | Verify Wrangler is authenticated (same env vars as deploy) |
 | `npm run db:push` | Apply Drizzle schema to the configured database |
 | `npm test` | Vitest (unit + component as configured) |
 | `npm run test:e2e` | Rebuilds for E2E env, runs Playwright (preview + screenshots) |

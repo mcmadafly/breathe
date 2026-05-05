@@ -1,6 +1,11 @@
 # Deploys the Astro Cloudflare Pages bundle (`dist/cf-pages`) on every push to `main`.
 # Production DB, Clerk, Stripe, etc. should be set on the Cloudflare Pages project for runtime;
 # this workflow only needs enough env for `astro build` to bundle (Turso defaults to `:memory:` in CI when the secret is unset).
+#
+# Required repo secrets for deploy:
+#   · CLOUDFLARE_API_TOKEN — API token with Account → Cloudflare Pages → Edit (and Workers if needed).
+#     https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+#   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → account id in the dashboard sidebar.
 
 name: Deploy Cloudflare Pages
 
@@ -13,6 +18,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
+      # Used by `astro build` / bundle only; wrangler-action sets auth for deploy separately.
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # Empty / missing secret → in-memory DB so `npm run build:pages` can bundle without a live Turso URL.
@@ -32,8 +38,28 @@ jobs:
 
       - run: npm run build:pages
 
-      - name: Deploy to Cloudflare Pages
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          rm -rf .wrangler
-          cd dist/cf-pages
-          npx wrangler pages deploy .
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Set the CLOUDFLARE_API_TOKEN repository secret (Pages/Workers deploy). See workflow header comment."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Set the CLOUDFLARE_ACCOUNT_ID repository secret."
+            exit 1
+          fi
+
+      - name: Clear local Wrangler state
+        run: rm -rf .wrangler dist/cf-pages/.wrangler
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          workingDirectory: dist/cf-pages
+          command: pages deploy . --project-name=spirare

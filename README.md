@@ -39,6 +39,19 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm test` | Vitest (unit + component as configured) |
 | `npm run test:e2e` | Rebuilds for E2E env, runs Playwright (preview + screenshots) |
 
+## Deploy troubleshooting
+
+**`*.pages.dev` works but the custom domain (e.g. spirare.io) returns 500**, or the console shows **“Unsafe attempt to load URL https://spirare.io/…”**:
+
+1. **Cloudflare Pages — Production vs Preview variables**  
+   **Custom domains** use the **Production** environment. Branch preview URLs use **Preview**. In **Workers & Pages → your project → Settings → Environment variables**, copy every required var (especially **`TURSO_DATABASE_URL`**, **`TURSO_AUTH_TOKEN`**, **`CLERK_SECRET_KEY`**, **`PUBLIC_CLERK_PUBLISHABLE_KEY`**, Stripe, etc.) into **Production**, not only Preview. Missing `TURSO_DATABASE_URL` crashes the worker at startup (`Missing TURSO_DATABASE_URL` → 500).
+
+2. **Clerk — Domains**  
+   In [Clerk Dashboard → configure → Domains](https://dashboard.clerk.com/), add **`spirare.io`** (and `www` if you use it). Without it, Clerk’s embedded UI / redirects can break and the browser may report unsafe cross-origin navigation. Use the same **publishable key** you bake into the build for production.
+
+3. **Cloudflare — Custom domain**  
+   Confirm **spirare.io** is listed under the **breathe** Pages project → **Custom domains**, attached to the **production** branch, with DNS proxied correctly.
+
 ## Contributing / docs
 
 Issues and PRs welcome on the [repository](https://github.com/mcmadafly/breathe). Astro’s own docs live at [docs.astro.build](https://docs.astro.build).

@@ -14,15 +14,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const e2eDev = process.env.E2E_DEV === 'true';
 /** Set by `npm run build` / `build:pages` — stub native Turso packages so the worker has no `node:fs` / NAPI. */
 const cfSsrBuild = process.env.SCRIBBBLES_CF_SSR_BUILD === '1';
-/** `astro dev` (npm script or `npx astro dev`) — avoid Vite SSR prebundle splitting `react` from `react-dom/server`. */
-const npmRunDev =
-  process.env.npm_lifecycle_event === 'dev' ||
-  (() => {
-    const i = process.argv.findIndex(
-      (a) => a === 'astro' || /[/\\]astro\.js$/.test(a),
-    );
-    return i !== -1 && process.argv[i + 1] === 'dev';
-  })();
 
 // https://astro.build/config
 export default defineConfig({
@@ -90,6 +81,10 @@ export default defineConfig({
     },
     optimizeDeps: {
       include: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        'react-dom/client',
         'astro/actions/runtime/entrypoints/server.js',
         '@clerk/astro/server',
         '@clerk/astro/internal',
@@ -104,6 +99,10 @@ export default defineConfig({
     ssr: {
       optimizeDeps: {
         include: [
+          'react',
+          'react-dom',
+          'react/jsx-runtime',
+          'react-dom/client',
           'astro/actions/runtime/entrypoints/server.js',
           '@clerk/astro/server',
           '@clerk/astro/internal',
@@ -111,11 +110,6 @@ export default defineConfig({
         ],
         exclude: ['stripe', '@cloudflare/unenv-preset'],
       },
-      ...(npmRunDev
-        ? {
-            external: ['react', 'react-dom'],
-          }
-        : {}),
     },
   },
 

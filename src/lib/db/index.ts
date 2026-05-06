@@ -13,8 +13,20 @@ type TursoSyncDatabase = {
   push: () => Promise<void>;
 };
 
-/** Cloudflare Workers expose vars on the handler `env`; Astro maps that via `getEnv`, not `process.env`. */
+/**
+ * Cloudflare Workers read vars from handler `env` via `getEnv`. In `astro dev`, Miniflare can populate
+ * that from `.dev.vars` / Wrangler config — which may not match a working root `.env` after secret
+ * experiments. Prefer Vite-loaded `.env` locally; production still uses `getEnv` first (runtime secrets).
+ */
+const prefersLocalEnvFiles = import.meta.env.DEV === true;
+
 function readTursoUrl(): string | undefined {
+  if (prefersLocalEnvFiles) {
+    if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
+      return process.env.TURSO_DATABASE_URL;
+    const im = import.meta.env.TURSO_DATABASE_URL;
+    if (im !== undefined && im !== '') return im;
+  }
   const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
   if (g !== undefined && g !== '') return g;
   if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
@@ -23,6 +35,12 @@ function readTursoUrl(): string | undefined {
 }
 
 function readTursoAuthToken(): string | undefined {
+  if (prefersLocalEnvFiles) {
+    if (typeof process !== 'undefined' && process.env.TURSO_AUTH_TOKEN)
+      return process.env.TURSO_AUTH_TOKEN;
+    const im = import.meta.env.TURSO_AUTH_TOKEN;
+    if (im !== undefined && im !== '') return im;
+  }
   const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
   if (g !== undefined && g !== '') return g;
   if (typeof process !== 'undefined' && process.env.TURSO_AUTH_TOKEN)
@@ -31,6 +49,11 @@ function readTursoAuthToken(): string | undefined {
 }
 
 function readEnvKey(key: 'TURSO_USE_SYNC' | 'TURSO_SYNC_PATH'): string | undefined {
+  if (prefersLocalEnvFiles) {
+    if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
+    const im = import.meta.env[key];
+    if (im !== undefined && im !== '') return im;
+  }
   const g = getEnv(key) as string | undefined;
   if (g !== undefined && g !== '') return g;
   if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
@@ -76,6 +99,13 @@ if (!allowNativeTursoSync && wantsTursoSyncConfig) {
 
 /** Remote Turso requires a token; pure local `file:` SQLite must not send a hosted JWT. */
 const authTokenForRemote = authTokenRaw || undefined;
+
+if (remoteUrl.startsWith('libsql://') && !authTokenForRemote) {
+  console.warn(
+    '[db] TURSO_DATABASE_URL is a hosted libsql:// URL but TURSO_AUTH_TOKEN is empty. ' +
+      'Turso returns HTTP 400 for unauthenticated requests; set the token from the Turso dashboard.',
+  );
+}
 
 if (!remoteUrl) {
   throw new Error('Missing TURSO_DATABASE_URL');

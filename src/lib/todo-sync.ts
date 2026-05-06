@@ -69,15 +69,18 @@ export const todoSync = {
   publish(userId: string, msg: TodoSyncMessage): void {
     const set = channels.get(userId);
     if (!set) return;
-    /** Defer so Workers dev/runtime doesn’t tie SSE `enqueue` to the action request context (cross-request promise warning). */
+    /**
+     * Call listeners synchronously from the mutating request’s stack (before it finishes).
+     * Queueing with `queueMicrotask` runs after that request completes, which triggers Workers /
+     * Vite’s “promise resolved from a different request context” warning when `enqueue` writes
+     * to an SSE stream opened by another request.
+     */
     for (const l of Array.from(set)) {
-      queueMicrotask(() => {
-        try {
-          l(msg);
-        } catch {
-          /* listener failed; ignore */
-        }
-      });
+      try {
+        l(msg);
+      } catch {
+        /* listener failed; ignore */
+      }
     }
   },
 };

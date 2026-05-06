@@ -1,5 +1,6 @@
 # Deploys the Astro Cloudflare **Worker** (`wrangler deploy`) on every push to `main`.
-# Runtime secrets and vars should live on the Worker in the dashboard (or `wrangler secret put`).
+# Runtime secrets and vars must exist on the Worker (dashboard, `wrangler secret put`, or
+# `npm run cf:secret:bulk` locally). CI does not inject production secrets into the Worker.
 # This workflow only needs enough env for `astro build` (client embeds PUBLIC_*; Turso defaults to
 # `:memory:` in CI when the database URL secret is unset).
 #

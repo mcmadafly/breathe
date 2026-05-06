@@ -16,6 +16,8 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+# Local file for `npm run cf:secret:bulk` (upload to Cloudflare Worker)
+cf-worker.secrets.env
 local.db
 local.db-*
 # Turso Sync / local synced DB dirs (local dev / Node deploys)

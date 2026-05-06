@@ -35,10 +35,23 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm run deploy:worker` | Same as `npm run deploy` |
 | `npm run deploy:pages` | Optional: Pages bundle + `wrangler pages deploy` (set `CLOUDFLARE_PAGES_PROJECT` if not **`breathe`**) |
 | `npm run cf:whoami` | Verify Wrangler auth and **Account ID** (compare to GitHub `CLOUDFLARE_ACCOUNT_ID`) |
+| `npm run cf:secret:list` | List secrets on Worker **`breathe`** |
+| `npm run cf:secret:bulk` | Upload **`cf-worker.secrets.env`** to the Worker (after `npm run build`) |
 | `npm run cf:pages:list` | List Pages projects in the authenticated account |
 | `npm run db:push` | Apply Drizzle schema to the configured database |
 | `npm test` | Vitest (unit + component as configured) |
 | `npm run test:e2e` | Rebuilds for E2E env, runs Playwright (preview + screenshots) |
+
+## Worker secrets (production)
+
+Deploying the **Worker** with `npm run deploy` only uploads code and assets. **Secrets and variables** on the Worker are separate. If `npm run cf:secret:list` is empty, the app will fail at runtime (e.g. missing Turso URL or Clerk keys).
+
+1. **Copy** values from your old Cloudflare **Pages** project (or local `.env`) — same variable names.
+2. **Upload** either:
+   - **`npm run build && npm run cf:secret:bulk`** after creating gitignored **`cf-worker.secrets.env`** (see `.env.example`), or  
+   - **`npx wrangler secret put NAME`** for each sensitive key, plus **plain variables** in the dashboard for anything you prefer not to store as a “secret”.
+
+CI does **not** push secrets to the Worker; set them once per account (or manage via infrastructure as code).
 
 ## Deploy troubleshooting
 

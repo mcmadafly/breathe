@@ -68,6 +68,8 @@ interface Props {
   isPro: boolean;
   /** Cookie session before Clerk sign-in — hide list/category navigation. */
   isAnonymous?: boolean;
+  /** SSR failed to read todos/lists from the DB; board still mounts with empty state + banner. */
+  initialTodoDataFailed?: boolean;
 }
 
 type FilterId = 'all' | string;
@@ -719,7 +721,13 @@ function burstConfettiFromCheckbox(el: HTMLElement) {
   void confetti({ ...base, particleCount: 35, spread: 120, startVelocity: 32, ticks: 320 });
 }
 
-export function TodoBoard({ initialTodos, initialLists, isPro, isAnonymous = false }: Props) {
+export function TodoBoard({
+  initialTodos,
+  initialLists,
+  isPro,
+  isAnonymous = false,
+  initialTodoDataFailed = false,
+}: Props) {
   const checkboxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const skipEditBlurSaveRef = useRef(false);
   const [items, setItems] = useState<TodoRow[]>(() => sortTodoRows([...initialTodos], initialLists));
@@ -763,6 +771,11 @@ export function TodoBoard({ initialTodos, initialLists, isPro, isAnonymous = fal
     listsRef.current = nextLists;
     setItems(sortTodoRows(normalizedTodos, nextLists));
   }, []);
+
+  useEffect(() => {
+    if (!initialTodoDataFailed) return;
+    void syncFromServer({ bypassBusy: true });
+  }, [initialTodoDataFailed, syncFromServer]);
 
   const notifyOtherClients = useCallback(() => {
     try {
@@ -1598,6 +1611,18 @@ export function TodoBoard({ initialTodos, initialLists, isPro, isAnonymous = fal
 
   return (
     <>
+      {initialTodoDataFailed ? (
+        <div
+          role="status"
+          className="mb-3 rounded-xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+        >
+          <p className="font-medium">Couldn’t load tasks from the database.</p>
+          <p className="mt-1 text-amber-900/85 dark:text-amber-200/90">
+            Check <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code> / token
+            and Worker secrets, then refresh. You can still try adding a task once the DB is reachable.
+          </p>
+        </div>
+      ) : null}
       <div
         className={cn(
           'mx-auto flex w-full min-w-0 max-w-none flex-row items-start gap-2 sm:gap-2.5',

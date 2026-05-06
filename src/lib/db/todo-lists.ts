@@ -13,51 +13,55 @@ export async function listTodoListsForUser(userId: string) {
     .all();
 }
 
-/** Ensure default lists exist and migrate legacy `category` → `list_id`. */
+/** Ensure default lists exist and migrate legacy `category` → `list_id`. Swallows DB errors so middleware/pages do not 500 when Turso is misconfigured. */
 export async function ensureTodoListsAndMigrate(userId: string) {
-  let lists = await listTodoListsForUser(userId);
-  const now = new Date();
+  try {
+    let lists = await listTodoListsForUser(userId);
+    const now = new Date();
 
-  if (lists.length === 0) {
-    const workId = crypto.randomUUID();
-    const personalId = crypto.randomUUID();
-    const homeId = crypto.randomUUID();
-    await db.insert(todoLists).values([
-      { id: workId, userId, name: 'Work', position: 0, createdAt: now, updatedAt: now },
-      { id: personalId, userId, name: 'Personal', position: 1, createdAt: now, updatedAt: now },
-      { id: homeId, userId, name: 'Home', position: 2, createdAt: now, updatedAt: now },
-    ]);
-    lists = await listTodoListsForUser(userId);
-  }
+    if (lists.length === 0) {
+      const workId = crypto.randomUUID();
+      const personalId = crypto.randomUUID();
+      const homeId = crypto.randomUUID();
+      await db.insert(todoLists).values([
+        { id: workId, userId, name: 'Work', position: 0, createdAt: now, updatedAt: now },
+        { id: personalId, userId, name: 'Personal', position: 1, createdAt: now, updatedAt: now },
+        { id: homeId, userId, name: 'Home', position: 2, createdAt: now, updatedAt: now },
+      ]);
+      lists = await listTodoListsForUser(userId);
+    }
 
-  const byLowerName: Record<string, string> = {};
-  for (const l of lists) {
-    byLowerName[l.name.trim().toLowerCase()] = l.id;
-  }
+    const byLowerName: Record<string, string> = {};
+    for (const l of lists) {
+      byLowerName[l.name.trim().toLowerCase()] = l.id;
+    }
 
-  const fallbackListId = lists[0]!.id;
+    const fallbackListId = lists[0]!.id;
 
-  const cols = await getTodoTableColumns();
-  if (!cols.has('list_id')) {
-    return;
-  }
+    const cols = await getTodoTableColumns();
+    if (!cols.has('list_id')) {
+      return;
+    }
 
-  const selectParts = ['todos.id'];
-  if (cols.has('category')) selectParts.push('todos.category');
+    const selectParts = ['todos.id'];
+    if (cols.has('category')) selectParts.push('todos.category');
 
-  const orphans = await db.all<Record<string, unknown>>(sql`
+    const orphans = await db.all<Record<string, unknown>>(sql`
     SELECT ${sql.raw(selectParts.join(', '))}
     FROM todos
     WHERE todos.user_id = ${userId} AND todos.list_id IS NULL
   `);
 
-  for (const raw of orphans) {
-    const id = String(raw.id ?? '');
-    if (!id) continue;
-    const cat = cols.has('category')
-      ? String(raw.category ?? 'work').toLowerCase()
-      : 'work';
-    const lid = byLowerName[cat] ?? fallbackListId;
-    await db.update(todos).set({ listId: lid }).where(eq(todos.id, id));
+    for (const raw of orphans) {
+      const id = String(raw.id ?? '');
+      if (!id) continue;
+      const cat = cols.has('category')
+        ? String(raw.category ?? 'work').toLowerCase()
+        : 'work';
+      const lid = byLowerName[cat] ?? fallbackListId;
+      await db.update(todos).set({ listId: lid }).where(eq(todos.id, id));
+    }
+  } catch (err) {
+    console.error('[db] ensureTodoListsAndMigrate failed (continuing without lists bootstrap)', err);
   }
 }

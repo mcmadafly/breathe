@@ -8,35 +8,46 @@ import { listTodosForUser } from '@/lib/db/todos';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 const session = Astro.locals.session!;
+
+let initialLists: TodoListRow[] = [];
+let initialTodos: TodoRow[] = [];
+let todoBoardInitiallyWide = false;
+let initialTodoDataFailed = false;
+
+try {
+  const listRows = await listTodoListsForUser(session.user.id);
+  initialLists = listRows.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    name: r.name,
+    position: r.position,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }));
+
+  const rows = await listTodosForUser(session.user.id);
+  initialTodos = rows.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    title: r.title,
+    body: r.body ?? '',
+    listId: r.listId ?? '',
+    position: r.position ?? 0,
+    done: r.done,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }));
+
+  todoBoardInitiallyWide = rows.some(
+    (r) => r.title.length + (r.body?.length ?? 0) > TODO_BOARD_EXPAND_SHELL_CHARS,
+  );
+} catch (err) {
+  console.error('[index] todo initial load failed', err);
+  initialTodoDataFailed = true;
+}
+
 const isPro = Astro.locals.isPro;
 const isAnonymous = Astro.locals.isAnonymous;
-
-const listRows = await listTodoListsForUser(session.user.id);
-const initialLists: TodoListRow[] = listRows.map((r) => ({
-  id: r.id,
-  userId: r.userId,
-  name: r.name,
-  position: r.position,
-  createdAt: r.createdAt,
-  updatedAt: r.updatedAt,
-}));
-
-const rows = await listTodosForUser(session.user.id);
-const initialTodos: TodoRow[] = rows.map((r) => ({
-  id: r.id,
-  userId: r.userId,
-  title: r.title,
-  body: r.body ?? '',
-  listId: r.listId ?? '',
-  position: r.position ?? 0,
-  done: r.done,
-  createdAt: r.createdAt,
-  updatedAt: r.updatedAt,
-}));
-
-const todoBoardInitiallyWide = rows.some(
-  (r) => r.title.length + (r.body?.length ?? 0) > TODO_BOARD_EXPAND_SHELL_CHARS,
-);
 ---
 
 <BaseLayout
@@ -55,5 +66,6 @@ const todoBoardInitiallyWide = rows.some(
     initialLists={initialLists}
     isPro={isPro}
     isAnonymous={isAnonymous}
+    initialTodoDataFailed={initialTodoDataFailed}
   />
 </BaseLayout>

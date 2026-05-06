@@ -8,6 +8,8 @@ export function TodoBoardIsland(props: {
   initialLists: TodoListRow[];
   isPro: boolean;
   isAnonymous?: boolean;
+  /** True when SSR could not load lists/todos (e.g. Turso HTTP 400); show a soft banner, avoid crashing. */
+  initialTodoDataFailed?: boolean;
 }) {
   return (
     <TodoBoardErrorBoundary>

@@ -17,7 +17,7 @@
     "deploy": "npm run build && rm -rf .wrangler && wrangler deploy --config dist/server/wrangler.json",
     "deploy:pages": "npm run build:pages && rm -rf .wrangler dist/cf-pages/.wrangler && sh -c 'cd dist/cf-pages && wrangler pages deploy . --project-name=${CLOUDFLARE_PAGES_PROJECT:-breathe}'",
     "cf:whoami": "npx wrangler whoami",
-    "cf:secret:list": "npx wrangler secret list",
+    "cf:secret:list": "npx wrangler versions secret list",
     "cf:secret:bulk": "node scripts/cf-worker-secret-bulk.mjs",
     "cf:pages:list": "npx wrangler pages project list",
     "deploy:worker": "npm run deploy",

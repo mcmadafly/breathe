@@ -2,7 +2,7 @@
 
 A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe. Build. Repeat.**
 
-Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Pages / Worker** project name defaults to **`breathe`** (override with `CLOUDFLARE_PAGES_PROJECT` if needed).
+Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Worker** script name in `wrangler.jsonc` defaults to **`breathe`**. (`npm run deploy:pages` uses a separate Pages **project** name via `CLOUDFLARE_PAGES_PROJECT` only if you use that optional path.)
 
 - **Site / product:** [Taecho](https://taecho.co) — source and issues live on [GitHub](https://github.com/mcmadafly/breathe). For a wider intro to Taecho (what we build, how we think about tools like Breathe), see **[taecho.io](https://taecho.io/)**.
 - **License:** [MIT](LICENSE) (copyright Taecho; see file for full text). In the running app, **`/mit-license`** shows the same license for easy reading.
@@ -13,7 +13,7 @@ Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Pages / Worker** 
 - **Auth:** [Clerk](https://clerk.com/) (sign-in / sign-up), optional cookie-backed anonymous session where routes allow it.
 - **Data:** [Turso](https://turso.tech/) (libSQL) + [Drizzle ORM](https://orm.drizzle.team/); migrations under `drizzle/`.
 - **App shell:** [Astro](https://astro.build/) (server output) + React islands, [Tailwind CSS](https://tailwindcss.com/) v4, shadcn-style UI, theme toggle, toasts.
-- **Deploy:** [Cloudflare](https://developers.cloudflare.com/workers/) adapter (`wrangler`), KV-backed sessions binding, optional Pages bundle scripts in `package.json`. **Day-to-day:** `npm run deploy` (`wrangler pages deploy` to **`breathe`** by default). Do not run `pages project create` when the project already exists (error **8000002**). CI still runs `create` first and continues if the project is already there. Set **`CLOUDFLARE_PAGES_PROJECT`** if your dashboard name differs.
+- **Deploy:** [Cloudflare Workers](https://developers.cloudflare.com/workers/) via the Astro adapter (`wrangler deploy`, KV **SESSION** binding). **`npm run deploy`** builds and deploys the Worker (name **`breathe`** by default in `wrangler.jsonc`). Optional **`npm run deploy:pages`** targets a separate Cloudflare **Pages** project if you need that layout.
 - **PWA:** Web app manifest and service worker for installable, offline-friendly static assets.
 
 Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` gates compile-time E2E helpers (e.g. internal probe routes).
@@ -31,8 +31,9 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 | `npm run dev` | Dev server (default [localhost:4321](http://localhost:4321)) |
 | `npm run build` | Production build to `./dist/` |
 | `npm run preview` | Preview the build locally |
-| `npm run deploy` | Build Pages bundle, then deploy (default Pages project **`breathe`**; set `CLOUDFLARE_PAGES_PROJECT` if yours differs) |
-| `npm run deploy:worker` | Worker deploy (`astro build` + `wrangler deploy`) |
+| `npm run deploy` | `astro build` + **`wrangler deploy`** (Worker; default script name **`breathe`**) |
+| `npm run deploy:worker` | Same as `npm run deploy` |
+| `npm run deploy:pages` | Optional: Pages bundle + `wrangler pages deploy` (set `CLOUDFLARE_PAGES_PROJECT` if not **`breathe`**) |
 | `npm run cf:whoami` | Verify Wrangler auth and **Account ID** (compare to GitHub `CLOUDFLARE_ACCOUNT_ID`) |
 | `npm run cf:pages:list` | List Pages projects in the authenticated account |
 | `npm run db:push` | Apply Drizzle schema to the configured database |
@@ -41,16 +42,16 @@ Dev-only conveniences: `SKIP_AUTH` for local/E2E without Clerk keys; `E2E_DEV` g
 
 ## Deploy troubleshooting
 
-**`*.pages.dev` works but the custom domain (e.g. spirare.io) returns 500**, or the console shows **“Unsafe attempt to load URL https://spirare.io/…”**:
+**Custom domain returns 500** while **`*.workers.dev`** (or a preview URL) works**, or the console shows **“Unsafe attempt to load URL https://spirare.io/…”**:
 
-1. **Cloudflare Pages — Production vs Preview variables**  
-   **Custom domains** use the **Production** environment. Branch preview URLs use **Preview**. In **Workers & Pages → your project → Settings → Environment variables**, copy every required var (especially **`TURSO_DATABASE_URL`**, **`TURSO_AUTH_TOKEN`**, **`CLERK_SECRET_KEY`**, **`PUBLIC_CLERK_PUBLISHABLE_KEY`**, Stripe, etc.) into **Production**, not only Preview. Missing `TURSO_DATABASE_URL` crashes the worker at startup (`Missing TURSO_DATABASE_URL` → 500).
+1. **Cloudflare Worker — variables and secrets**  
+   In **Workers & Pages → Workers → your script (e.g. breathe) → Settings**, set **Variables** and **Secrets** for production. Missing **`TURSO_DATABASE_URL`** or auth keys often surfaces as a **500** at startup. Use **`wrangler secret put`** for sensitive values.
 
 2. **Clerk — Domains**  
    In [Clerk Dashboard → configure → Domains](https://dashboard.clerk.com/), add **`spirare.io`** (and `www` if you use it). Without it, Clerk’s embedded UI / redirects can break and the browser may report unsafe cross-origin navigation. Use the same **publishable key** you bake into the build for production.
 
-3. **Cloudflare — Custom domain**  
-   Confirm **spirare.io** is listed under the **breathe** Pages project → **Custom domains**, attached to the **production** branch, with DNS proxied correctly.
+3. **Cloudflare — Custom domain / routes**  
+   Confirm **spirare.io** (or your host) is attached to the **Worker** (Triggers → Custom Domains / Routes) with DNS proxied as expected.
 
 ## Contributing / docs
 

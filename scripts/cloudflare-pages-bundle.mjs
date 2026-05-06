@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 /**
- * After `astro build`, merge `dist/client` + `dist/server` into a Cloudflare **Pages**
- * bundle: static assets at the root and SSR worker at `_worker.js/` (Advanced Pages Functions).
+ * **Optional** Cloudflare **Pages** bundle (not the default deploy path — use `npm run deploy` = Worker).
+ *
+ * After `astro build`, merge `dist/client` + `dist/server` into a **Pages** upload folder: static assets at the root and SSR worker at `_worker.js/` (Advanced Pages Functions).
  * The server entry is renamed to `_worker.js/index.js` (Wrangler does not resolve `index.mjs`).
+ *
+ * **No `wrangler.json` in this folder:** A valid Pages config with `pages_build_output_dir` causes
+ * `wrangler pages deploy` to attach a config hash and worker metadata that can replace production
+ * bindings (dashboard + `wrangler pages secret` plain vars/secrets) with an empty set. Runtime
+ * compatibility flags, KV, and env should come from the **existing** Pages project settings
+ * (Workers & Pages → project → Settings); `nodejs_compat` must already be enabled there.
  *
  * @see https://developers.cloudflare.com/pages/functions/advanced-mode/
  */
-import { cp, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rename, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,23 +48,6 @@ await cp(serverDir, workerOut, {
 
 await rename(path.join(workerOut, 'entry.mjs'), path.join(workerOut, 'index.js'));
 
-/** Pages-only Wrangler file. Root `wrangler.jsonc` merges into `dist/server/wrangler.json` (Worker-shaped); Pages deploy must not use that file or `nodejs_compat` and KV are ignored and imports like `node:events` fail. KV `SESSION` must exist on the Pages project (dashboard); do not put namespace IDs in git. */
-const pagesWranglerPath = path.join(outDir, 'wrangler.json');
-await writeFile(
-  pagesWranglerPath,
-  `${JSON.stringify(
-    {
-      $schema: '../../node_modules/wrangler/config-schema.json',
-      name: pagesProjectName,
-      pages_build_output_dir: '.',
-      compatibility_date: '2025-05-01',
-      compatibility_flags: ['nodejs_compat'],
-    },
-    null,
-    2,
-  )}\n`,
-);
-
 console.log(
-  `cloudflare-pages-bundle: wrote dist/cf-pages (wrangler pages deploy . --project-name=${pagesProjectName})`,
+  `cloudflare-pages-bundle: wrote dist/cf-pages (wrangler pages deploy . --project-name=${pagesProjectName}; no wrangler.json — preserves dashboard env)`,
 );

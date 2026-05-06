@@ -1,7 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Cloudflare **Worker** (primary): `npm run deploy` → `astro build` + `wrangler deploy`.
+  // Astro merges this into `dist/server/wrangler.json`. `keep_vars: true` keeps dashboard / Terraform
+  // plain vars when the merged config only has `vars: {}` (avoids wiping env on each deploy).
+  // Secrets: `wrangler secret put KEY` (same script name as in Workers dashboard).
   "name": "breathe",
   "compatibility_date": "2025-05-01",
   "compatibility_flags": ["nodejs_compat"],
-  "kv_namespaces": [{ "binding": "SESSION" }]
+  "kv_namespaces": [{ "binding": "SESSION" }],
+  "keep_vars": true
 }

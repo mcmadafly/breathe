@@ -1,0 +1,71 @@
+# Deploys the Astro Cloudflare **Worker** (`wrangler deploy`) on every push to `main`.
+# Runtime secrets and vars should live on the Worker in the dashboard (or `wrangler secret put`).
+# This workflow only needs enough env for `astro build` (client embeds PUBLIC_*; Turso defaults to
+# `:memory:` in CI when the database URL secret is unset).
+#
+# Required repo secrets:
+#   · CLOUDFLARE_API_TOKEN — Custom token: Account → Workers Scripts → Edit (and often Account → Workers KV → Edit for SESSION).
+#   · CLOUDFLARE_ACCOUNT_ID — Workers & Pages → your account sidebar “Account ID”.
+#
+# Optional build-time (server bundle may reference these; match production for parity):
+#   · TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY — GitHub Secrets
+#
+# References:
+#   · https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/
+#   · https://developers.cloudflare.com/workers/wrangler/commands/#deploy
+
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL != '' && secrets.TURSO_DATABASE_URL || ':memory:' }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Set CLOUDFLARE_API_TOKEN (Workers deploy). See workflow header."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Set CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+
+      - name: Clear local Wrangler state
+        run: rm -rf .wrangler
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        env:
+          WRANGLER_LOG: debug
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
+          command: deploy

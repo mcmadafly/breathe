@@ -42,7 +42,13 @@ try {
     (r) => r.title.length + (r.body?.length ?? 0) > TODO_BOARD_EXPAND_SHELL_CHARS,
   );
 } catch (err) {
-  console.error('[index] todo initial load failed', err);
+  const hint =
+    err instanceof Error
+      ? err.cause instanceof Error
+        ? err.cause.message
+        : err.message
+      : String(err);
+  console.warn(`[index] todo SSR load skipped: ${hint}`);
   initialTodoDataFailed = true;
 }
 

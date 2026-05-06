@@ -62,6 +62,12 @@ export async function ensureTodoListsAndMigrate(userId: string) {
       await db.update(todos).set({ listId: lid }).where(eq(todos.id, id));
     }
   } catch (err) {
-    console.error('[db] ensureTodoListsAndMigrate failed (continuing without lists bootstrap)', err);
+    const hint =
+      err instanceof Error
+        ? err.cause instanceof Error
+          ? err.cause.message
+          : err.message
+        : String(err);
+    console.warn(`[db] ensureTodoListsAndMigrate skipped: ${hint}`);
   }
 }

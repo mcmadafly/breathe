@@ -1618,8 +1618,22 @@ export function TodoBoard({
         >
           <p className="font-medium">Couldn’t load tasks from the database.</p>
           <p className="mt-1 text-amber-900/85 dark:text-amber-200/90">
-            Check <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code> / token
-            and Worker secrets, then refresh. You can still try adding a task once the DB is reachable.
+            {import.meta.env.DEV ? (
+              <>
+                In dev, set <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code>{' '}
+                (e.g. <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">libsql://…</code>) and{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_AUTH_TOKEN</code> in{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">.env</code>, run{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">npm run db:push</code> if the schema
+                is new, then refresh.
+              </>
+            ) : (
+              <>
+                Check{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code> / token
+                and Worker secrets, then refresh. You can try adding a task once the DB responds.
+              </>
+            )}
           </p>
         </div>
       ) : null}

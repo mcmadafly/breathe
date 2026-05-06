@@ -69,12 +69,15 @@ export const todoSync = {
   publish(userId: string, msg: TodoSyncMessage): void {
     const set = channels.get(userId);
     if (!set) return;
-    for (const l of set) {
-      try {
-        l(msg);
-      } catch {
-        /* listener failed; ignore */
-      }
+    /** Defer so Workers dev/runtime doesn’t tie SSE `enqueue` to the action request context (cross-request promise warning). */
+    for (const l of Array.from(set)) {
+      queueMicrotask(() => {
+        try {
+          l(msg);
+        } catch {
+          /* listener failed; ignore */
+        }
+      });
     }
   },
 };

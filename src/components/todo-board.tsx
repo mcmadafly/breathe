@@ -1629,9 +1629,12 @@ export function TodoBoard({
               </>
             ) : (
               <>
-                Check{' '}
-                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code> / token
-                and Worker secrets, then refresh. You can try adding a task once the DB responds.
+                Check <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_DATABASE_URL</code> /{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">TURSO_AUTH_TOKEN</code> on the
+                machine that runs <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">npm run build</code>{' '}
+                and in the Cloudflare Worker’s variables (wrong Worker secrets can override the DB). Run{' '}
+                <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">npm run db:push</code> against the
+                production database if the schema is new, redeploy, then refresh.
               </>
             )}
           </p>

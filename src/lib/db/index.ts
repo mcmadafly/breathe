@@ -14,9 +14,13 @@ type TursoSyncDatabase = {
 };
 
 /**
- * Cloudflare Workers read vars from handler `env` via `getEnv`. In `astro dev`, Miniflare can populate
- * that from `.dev.vars` / Wrangler config — which may not match a working root `.env` after secret
- * experiments. Prefer Vite-loaded `.env` locally; production still uses `getEnv` first (runtime secrets).
+ * Cloudflare Workers expose `env` via `getEnv`. Precedence:
+ * - **astro dev**: root `.env` / Vite (`process` + `import.meta`) before `getEnv`, so Miniflare /
+ *   `.dev.vars` does not override a working `.env`.
+ * - **production**: non-empty `import.meta.env` (values from the `astro build` environment) before
+ *   `getEnv`. Incorrect or placeholder Worker secrets would otherwise override a good deploy built
+ *   with a correct `.env` and break the live site. CI builds with no Turso vars still fall through to
+ *   `getEnv` / Worker secrets only.
  */
 const prefersLocalEnvFiles = import.meta.env.DEV === true;
 
@@ -24,6 +28,9 @@ function readTursoUrl(): string | undefined {
   if (prefersLocalEnvFiles) {
     if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
       return process.env.TURSO_DATABASE_URL;
+    const im = import.meta.env.TURSO_DATABASE_URL;
+    if (im !== undefined && im !== '') return im;
+  } else {
     const im = import.meta.env.TURSO_DATABASE_URL;
     if (im !== undefined && im !== '') return im;
   }
@@ -40,6 +47,9 @@ function readTursoAuthToken(): string | undefined {
       return process.env.TURSO_AUTH_TOKEN;
     const im = import.meta.env.TURSO_AUTH_TOKEN;
     if (im !== undefined && im !== '') return im;
+  } else {
+    const im = import.meta.env.TURSO_AUTH_TOKEN;
+    if (im !== undefined && im !== '') return im;
   }
   const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
   if (g !== undefined && g !== '') return g;
@@ -51,6 +61,9 @@ function readTursoAuthToken(): string | undefined {
 function readEnvKey(key: 'TURSO_USE_SYNC' | 'TURSO_SYNC_PATH'): string | undefined {
   if (prefersLocalEnvFiles) {
     if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
+    const im = import.meta.env[key];
+    if (im !== undefined && im !== '') return im;
+  } else {
     const im = import.meta.env[key];
     if (im !== undefined && im !== '') return im;
   }

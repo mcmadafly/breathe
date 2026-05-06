@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Cloudflare deploy: Worker first
 
-Production for this app is the **Cloudflare Worker** whose name matches `wrangler.jsonc` → **`name`** (default **`breathe`**). **`npm run deploy`** runs `astro build` + **`wrangler deploy`** (redirected config: `dist/server/wrangler.json`).
+Production for this app is the **Cloudflare Worker** whose name matches `wrangler.jsonc` → **`name`** (default **`breathe`**). **`npm run deploy`** runs `astro build` + **`wrangler deploy --config dist/server/wrangler.json`** (explicit config so clearing `.wrangler` before deploy still works; the merge output lives next to the worker entry).
 
 **Env vars:** Set in the dashboard (**Workers → breathe → Settings → Variables**) or via **`wrangler secret put`**. Root **`keep_vars: true`** prevents merged `vars: {}` from the Astro build from wiping dashboard plain vars on deploy.
 
@@ -14,4 +14,4 @@ Production for this app is the **Cloudflare Worker** whose name matches `wrangle
 
 **Do not** confuse Worker **script name** (`wrangler.jsonc` `name`) with a **Pages project name**; they can differ when using `deploy:pages`.
 
-**References:** `.github/workflows/deploy-worker.yml`; adapter `configPath: './wrangler.jsonc'` in `astro.config.mjs`.
+**References:** `.github/workflows/deploy-worker.yml`; `astro.config.mjs` adapter `configPath: './wrangler.jsonc'`.

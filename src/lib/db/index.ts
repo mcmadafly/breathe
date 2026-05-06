@@ -17,12 +17,23 @@ type TursoSyncDatabase = {
  * Cloudflare Workers expose `env` via `getEnv`. Precedence:
  * - **astro dev**: root `.env` / Vite (`process` + `import.meta`) before `getEnv`, so Miniflare /
  *   `.dev.vars` does not override a working `.env`.
- * - **production**: non-empty `import.meta.env` (values from the `astro build` environment) before
- *   `getEnv`. Incorrect or placeholder Worker secrets would otherwise override a good deploy built
- *   with a correct `.env` and break the live site. CI builds with no Turso vars still fall through to
- *   `getEnv` / Worker secrets only.
+ * - **production**: `import.meta.env` from `astro build` before `getEnv` when the value is a real
+ *   remote/libsql URL. CI often bakes `:memory:` when `TURSO_DATABASE_URL` is unset (see
+ *   `deploy-worker.yml`); that must not override Worker Turso secrets on spirare.io.
  */
 const prefersLocalEnvFiles = import.meta.env.DEV === true;
+
+const isCfSsrBundle =
+  import.meta.env.SCRIBBBLES_CF_SSR === true || import.meta.env.SCRIBBBLES_CF_SSR === 'true';
+
+/** Build-time URL that should not win over Worker `env` on Cloudflare (CI placeholder or unusable on edge). */
+function bakedTursoUrlIgnoredOnWorker(url: string | undefined): boolean {
+  if (url === undefined || url === '') return true;
+  const u = url.trim();
+  if (u.startsWith(':memory:')) return true;
+  if (isCfSsrBundle && /^file:/i.test(u)) return true;
+  return false;
+}
 
 function readTursoUrl(): string | undefined {
   if (prefersLocalEnvFiles) {
@@ -32,7 +43,7 @@ function readTursoUrl(): string | undefined {
     if (im !== undefined && im !== '') return im;
   } else {
     const im = import.meta.env.TURSO_DATABASE_URL;
-    if (im !== undefined && im !== '') return im;
+    if (im !== undefined && im !== '' && !bakedTursoUrlIgnoredOnWorker(im)) return im;
   }
   const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
   if (g !== undefined && g !== '') return g;
@@ -89,13 +100,6 @@ const tursoSyncPathRaw =
 
 /** Local filesystem path (`file:` prefix optional) for synced Turso SQLite files on disk. */
 const tursoSyncPath = tursoSyncPathRaw.replace(/^file:/i, '').trim();
-
-/**
- * `astro build` with `SCRIBBBLES_CF_SSR_BUILD=1` aliases native Turso packages to stubs (see `astro.config.mjs`).
- * Vite `define` may inject boolean `true` or the string `'true'`; treat both as Cloudflare SSR.
- */
-const isCfSsrBundle =
-  import.meta.env.SCRIBBBLES_CF_SSR === true || import.meta.env.SCRIBBBLES_CF_SSR === 'true';
 
 const allowNativeTursoSync = !isCfSsrBundle;
 

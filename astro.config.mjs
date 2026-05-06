@@ -18,6 +18,12 @@ const cfSsrBuild = process.env.SCRIBBBLES_CF_SSR_BUILD === '1';
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
+  /** Bind all interfaces so `localhost` / `127.0.0.1` align with HMR WebSocket (avoids silent ws failures on some macOS setups). */
+  server: {
+    host: true,
+    port: 4321,
+    strictPort: true,
+  },
   devToolbar: {
     enabled: !e2eDev,
   },
@@ -51,8 +57,11 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     server: {
-      /** Stabilize HMR WebSocket URL when proxies or extensions confuse auto-detection. */
-      hmr: { protocol: 'ws', host: 'localhost' },
+      /**
+       * Keep HMR WS on the same port as the page. Do not pin `host: 'localhost'` (IPv4 vs IPv6
+       * mismatch breaks `ws://localhost:4321` when the dev server only listens on one stack).
+       */
+      hmr: { protocol: 'ws', port: 4321, clientPort: 4321 },
     },
     resolve: {
       dedupe: ['react', 'react-dom'],

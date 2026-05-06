@@ -147,7 +147,7 @@ const isProMember = isPro === true;
     <main
       class:list={[
         'mx-auto w-full flex-1 px-3',
-        wideContent ? 'board-shell-wide' : 'max-w-[36rem]',
+        wideContent ? 'board-shell-wide' : 'board-shell',
         showHeader ? 'py-5 sm:py-6' : 'flex flex-col items-center justify-center py-10 sm:py-12',
       ]}
     >
@@ -155,7 +155,7 @@ const isProMember = isPro === true;
     </main>
     <div class="site-footer-wrap mt-auto pt-8 sm:pt-10">
       <footer class="text-muted-foreground py-5 text-center text-xs leading-relaxed">
-        <div class="mx-auto max-w-[36rem] px-3">
+        <div class:list={['mx-auto px-3', wideContent ? 'board-shell-wide' : 'board-shell']}>
           <p>
             Breathe is produced by{' '}
             <a

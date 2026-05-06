@@ -324,7 +324,7 @@ export function UpgradePlans({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[36rem] space-y-8 px-2">
+    <div className="mx-auto w-full max-w-full space-y-8 px-2">
       <header className="text-center">
         <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Upgrade Breathe</h1>
         <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-sm sm:text-base">

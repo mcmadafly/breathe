@@ -135,7 +135,7 @@ export function SiteHeader({
     <div
       className={cn(
         'mx-auto grid h-14 w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-1 px-3',
-        wideLayout ? 'board-shell-wide' : 'max-w-[36rem]',
+        wideLayout ? 'board-shell-wide' : 'board-shell',
         'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4',
       )}
     >

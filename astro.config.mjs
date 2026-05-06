@@ -95,8 +95,11 @@ export default defineConfig({
         '@clerk/astro/internal',
         'zod',
       ],
-      /** Avoid broken `deps_ssr/stripe.js` in Cloudflare worker dev (Vite dep scan). */
-      exclude: ['stripe'],
+      /**
+       * Stripe breaks worker dev prebundle; `@cloudflare/unenv-preset` can produce a missing
+       * `deps_ssr/@cloudflare_unenv-preset_node_process.js` after HMR/restart (Vite 6 + CF plugin).
+       */
+      exclude: ['stripe', '@cloudflare/unenv-preset'],
     },
     ssr: {
       optimizeDeps: {
@@ -106,8 +109,7 @@ export default defineConfig({
           '@clerk/astro/internal',
           'zod',
         ],
-        /** Stripe breaks SSR prebundle (missing/invalid `deps_ssr` chunks in dev). */
-        exclude: ['stripe'],
+        exclude: ['stripe', '@cloudflare/unenv-preset'],
       },
       ...(npmRunDev
         ? {

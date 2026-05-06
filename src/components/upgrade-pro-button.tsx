@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { breatheAccentTight } from '@/lib/breathe-accent';
+import { cn } from '@/lib/utils';
 
 export function UpgradeProButton() {
   const [busy, setBusy] = useState(false);
@@ -22,7 +24,7 @@ export function UpgradeProButton() {
   return (
     <Button
       type="button"
-      className="bg-orange-500 text-white hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-500"
+      className={cn('rounded-lg px-4 font-semibold text-white', breatheAccentTight)}
       disabled={busy}
       onClick={() => void onActivate()}
     >

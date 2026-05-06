@@ -1,5 +1,5 @@
 /** Max todos per user on the free tier (before upgrade). */
-export const FREE_TODO_LIMIT = 3;
+export const FREE_TODO_LIMIT = 5;
 
 export const TODO_LIST_NAME_MAX_LENGTH = 64;
 

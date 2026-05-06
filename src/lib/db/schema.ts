@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm';
+import { defineRelations } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const users = sqliteTable('users', {
@@ -26,16 +26,6 @@ export const todoLists = sqliteTable('todo_lists', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
-  todos: many(todos),
-  todoLists: many(todoLists),
-}));
-
-export const todoListsRelations = relations(todoLists, ({ one, many }) => ({
-  user: one(users, { fields: [todoLists.userId], references: [users.id] }),
-  todos: many(todos),
-}));
-
 export const todos = sqliteTable('todos', {
   id: text('id').primaryKey(),
   userId: text('user_id')
@@ -54,13 +44,19 @@ export const todos = sqliteTable('todos', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const todosRelations = relations(todos, ({ one }) => ({
-  user: one(users, {
-    fields: [todos.userId],
-    references: [users.id],
-  }),
-  list: one(todoLists, {
-    fields: [todos.listId],
-    references: [todoLists.id],
-  }),
+export const schemaTables = { users, todoLists, todos };
+
+export const relations = defineRelations(schemaTables, (r) => ({
+  users: {
+    todos: r.many.todos(),
+    todoLists: r.many.todoLists(),
+  },
+  todoLists: {
+    user: r.one.users({ from: r.todoLists.userId, to: r.users.id }),
+    todos: r.many.todos(),
+  },
+  todos: {
+    user: r.one.users({ from: r.todos.userId, to: r.users.id }),
+    list: r.one.todoLists({ from: r.todos.listId, to: r.todoLists.id, optional: true }),
+  },
 }));

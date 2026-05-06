@@ -19,10 +19,19 @@ declare namespace App {
 interface ImportMetaEnv {
   readonly TURSO_DATABASE_URL: string;
   readonly TURSO_AUTH_TOKEN?: string;
+  /**
+   * Node / VPS only: use `@tursodatabase/sync` (local replica + LibSQL sync) when `true`/`1`/`yes`,
+   * `TURSO_DATABASE_URL` is `libsql:…`, and `TURSO_SYNC_PATH` is set. Omit on Cloudflare Workers/Pages.
+   */
+  readonly TURSO_USE_SYNC?: string;
+  /** Filesystem path for local synced SQLite files (`file:` prefix optional). Requires `libsql:` URL + token. */
+  readonly TURSO_SYNC_PATH?: string;
   readonly PUBLIC_CLERK_PUBLISHABLE_KEY: string;
   readonly CLERK_SECRET_KEY: string;
   /** Set at Astro build/dev from `E2E_DEV` via Vite `define` (e2e probe routes). */
   readonly SCRIBBBLES_E2E: boolean;
+  /** `true` or `'true'` when `astro build` runs with `SCRIBBBLES_CF_SSR_BUILD=1` (see `package.json` scripts). */
+  readonly SCRIBBBLES_CF_SSR: boolean | 'true' | 'false';
   /** When "true", skips Clerk and uses a fixed local user for /breathe and todos. */
   readonly SKIP_AUTH?: string;
   /** When "true", treats current session as Pro (for local testing). */

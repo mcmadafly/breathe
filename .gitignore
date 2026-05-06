@@ -18,6 +18,8 @@ pnpm-debug.log*
 .env.production
 local.db
 local.db-*
+# Turso Sync / local synced DB dirs (local dev / Node deploys)
+.data/
 
 # macOS-specific files
 .DS_Store

@@ -7,6 +7,7 @@ export function TodoBoardIsland(props: {
   initialTodos: TodoRow[];
   initialLists: TodoListRow[];
   isPro: boolean;
+  isAnonymous?: boolean;
 }) {
   return (
     <TodoBoardErrorBoundary>

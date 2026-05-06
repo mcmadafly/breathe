@@ -120,42 +120,121 @@
     --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Background mesh: CSS-only drift + breathe (transform/opacity → cheap compositing). */
+@keyframes mesh-bg-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-2.8%, 2.2%, 0) scale(1.07);
+  }
+}
+
+@keyframes mesh-bg-breathe {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
     }
-  body {
-    @apply text-foreground;
-    background-color: var(--background);
-    /* Abstract mesh: soft blobs + base tint (fixed so scroll feels calm). */
-    background-image: radial-gradient(
-        ellipse 90% 55% at 10% -15%,
-        oklch(0.93 0.07 55 / 0.55),
-        transparent 58%
-      ),
-      radial-gradient(ellipse 55% 40% at 92% 8%, oklch(0.9 0.05 265 / 0.28), transparent 50%),
-      radial-gradient(ellipse 75% 45% at 48% 108%, oklch(0.94 0.05 48 / 0.38), transparent 55%),
-      radial-gradient(ellipse 120% 80% at 50% 50%, oklch(0.99 0.01 85 / 0.4), transparent 70%);
-    background-attachment: fixed;
-    background-repeat: no-repeat;
-    }
-  html.dark body {
-    background-image: radial-gradient(
-        ellipse 88% 52% at 12% -8%,
-        oklch(0.24 0.08 55 / 0.55),
-        transparent 56%
-      ),
-      radial-gradient(ellipse 48% 38% at 88% 12%, oklch(0.26 0.07 270 / 0.32), transparent 48%),
-      radial-gradient(ellipse 80% 48% at 42% 102%, oklch(0.22 0.06 35 / 0.42), transparent 52%),
-      radial-gradient(ellipse 100% 70% at 50% 40%, oklch(0.18 0.03 260 / 0.35), transparent 65%);
-    }
   html {
+    min-height: 100%;
+    background-color: var(--background);
     @apply font-sans;
     color-scheme: light;
     }
+
+  html::before {
+    content: '';
+    position: fixed;
+    inset: -18vmax;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(
+        ellipse 95% 60% at 8% -10%,
+        oklch(0.88 0.11 252 / 0.72),
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 70% 50% at 96% 5%,
+        oklch(0.86 0.13 302 / 0.55),
+        transparent 48%
+      ),
+      radial-gradient(
+        ellipse 85% 55% at 52% 110%,
+        oklch(0.9 0.07 268 / 0.58),
+        transparent 52%
+      ),
+      radial-gradient(
+        ellipse 130% 90% at 50% 45%,
+        oklch(0.96 0.035 270 / 0.55),
+        transparent 68%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 78% 72%,
+        oklch(0.92 0.09 55 / 0.22),
+        transparent 55%
+      );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    animation:
+      mesh-bg-drift 28s ease-in-out infinite alternate,
+      mesh-bg-breathe 19s ease-in-out infinite alternate-reverse;
+    }
+
+  html.dark::before {
+    background-image:
+      radial-gradient(
+        ellipse 92% 58% at 10% -6%,
+        oklch(0.4 0.14 262 / 0.62),
+        transparent 52%
+      ),
+      radial-gradient(
+        ellipse 55% 45% at 90% 8%,
+        oklch(0.38 0.13 295 / 0.52),
+        transparent 46%
+      ),
+      radial-gradient(
+        ellipse 95% 55% at 45% 105%,
+        oklch(0.32 0.1 268 / 0.55),
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse 110% 85% at 50% 38%,
+        oklch(0.26 0.06 272 / 0.55),
+        transparent 62%
+      ),
+      radial-gradient(
+        ellipse 50% 40% at 72% 78%,
+        oklch(0.45 0.12 55 / 0.18),
+        transparent 50%
+      );
+    }
+
+  body {
+    @apply text-foreground;
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    background-color: transparent;
+    }
+
   html.dark {
     color-scheme: dark;
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html::before {
+    animation: none;
+  }
 }
 
 /* Focus / zen mode: fade chrome; exit control is fixed in SiteHeader. */
@@ -176,13 +255,14 @@
 }
 
 /* Shared max-width for header + main when `wideContent` (upgrade = full wide; home may narrow). */
+/* Values are ~75% of prior Tailwind scale (3xl/4xl/5xl) for a tighter column. */
 @layer components {
   .board-shell-wide {
-    @apply max-w-3xl md:max-w-4xl lg:max-w-5xl;
+    @apply max-w-[36rem] md:max-w-[42rem] lg:max-w-[48rem];
   }
 
   html.todo-board-page:not(.todo-board-wide) .board-shell-wide {
-    @apply md:max-w-3xl lg:max-w-2xl;
+    @apply md:max-w-[36rem] lg:max-w-[31.5rem];
   }
 }
 

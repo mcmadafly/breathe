@@ -1,0 +1,20 @@
+---
+description: Deploy to the existing Cloudflare Pages project; avoid duplicate wrangler projects
+globs: package.json,scripts/cloudflare-pages-bundle.mjs,wrangler.jsonc,astro.config.mjs
+alwaysApply: false
+---
+
+# Cloudflare deploy: one Pages project
+
+Production for this app is the **Git-connected** Cloudflare Pages project (e.g. custom domain `spirare.io`), not a second CLI-only project.
+
+**Why a duplicate can appear:** `npm run deploy` runs `wrangler pages deploy` with `--project-name=${CLOUDFLARE_PAGES_PROJECT:-breathe}` (see `package.json`). If that name does not match the **dashboard** Pages project wired to GitHub, Wrangler may deploy to a **different** Pages app (often shows “No Git connection” and a `*.pages.dev` host like `breathe-cur.pages.dev`).
+
+**What to do:**
+
+1. In the Cloudflare dashboard, open the **same** Workers & Pages app that lists the Git repo and production routes.
+2. Note its **project name** (must match `wrangler pages deploy --project-name=…`).
+3. Before local/CI manual deploy, set: `export CLOUDFLARE_PAGES_PROJECT='<that-exact-name>'` so `scripts/cloudflare-pages-bundle.mjs` and `npm run deploy` target it.
+4. Do **not** change `wrangler.jsonc` `name` to invent a new project for production without aligning the dashboard and env.
+
+**References:** `build:pages` → `astro build` + `scripts/cloudflare-pages-bundle.mjs`; adapter in `astro.config.mjs` (`@astrojs/cloudflare`, `configPath: './wrangler.jsonc'`).

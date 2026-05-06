@@ -4,10 +4,10 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { isProPlan } from '@/lib/pro-plan';
+import { breatheAccentCta } from '@/lib/breathe-accent';
 import { cn } from '@/lib/utils';
 
-const accentBtn =
-  'rounded-xl bg-[#f97316] px-6 font-semibold text-white shadow-md shadow-orange-900/25 hover:bg-[#ea580c] dark:bg-[#f97316] dark:hover:bg-[#ea580c]';
+const accentBtn = cn('rounded-xl px-6 font-semibold', breatheAccentCta);
 
 type Busy = 'monthly' | 'lifetime' | 'free' | null;
 
@@ -324,7 +324,7 @@ export function UpgradePlans({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-8 px-2">
+    <div className="mx-auto w-full max-w-[36rem] space-y-8 px-2">
       <header className="text-center">
         <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Upgrade Breathe</h1>
         <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-sm sm:text-base">

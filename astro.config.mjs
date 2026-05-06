@@ -12,6 +12,8 @@ import { shadcn } from '@clerk/ui/themes';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const e2eDev = process.env.E2E_DEV === 'true';
+/** Set by `npm run build` / `build:pages` — stub native Turso packages so the worker has no `node:fs` / NAPI. */
+const cfSsrBuild = process.env.SCRIBBBLES_CF_SSR_BUILD === '1';
 /** `astro dev` (npm script or `npx astro dev`) — avoid Vite SSR prebundle splitting `react` from `react-dom/server`. */
 const npmRunDev =
   process.env.npm_lifecycle_event === 'dev' ||
@@ -68,10 +70,23 @@ export default defineConfig({
         // Pin to one install path so SSR islands and `react-dom/server` share the same `react` instance.
         react: path.resolve(__dirname, './node_modules/react'),
         'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
+        ...(cfSsrBuild
+          ? {
+              '@tursodatabase/sync': path.resolve(
+                __dirname,
+                './src/lib/db/shims/turso-sync-cf-stub.ts',
+              ),
+              'drizzle-orm/tursodatabase/database': path.resolve(
+                __dirname,
+                './src/lib/db/shims/drizzle-turso-cf-stub.ts',
+              ),
+            }
+          : {}),
       },
     },
     define: {
       'import.meta.env.SCRIBBBLES_E2E': JSON.stringify(e2eDev),
+      'import.meta.env.SCRIBBBLES_CF_SSR': JSON.stringify(cfSsrBuild),
     },
     optimizeDeps: {
       include: [

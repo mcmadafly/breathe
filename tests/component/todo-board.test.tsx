@@ -50,4 +50,10 @@ describe('TodoBoard', () => {
 
     expect(title).toHaveClass('line-through');
   });
+
+  it('hides category navigation when anonymous', () => {
+    render(<TodoBoard initialTodos={[]} initialLists={getTestLists()} isPro={false} isAnonymous />);
+    expect(screen.queryByRole('tablist', { name: 'Categories' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Categories' })).not.toBeInTheDocument();
+  });
 });

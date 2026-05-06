@@ -58,6 +58,7 @@ const isProMember = isPro === true;
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={SITE_DESCRIPTION} />
     <meta name="theme-color" content="#fafafa" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>{title}</title>
@@ -128,7 +129,7 @@ const isProMember = isPro === true;
       })();
     </script>
   </head>
-  <body class="bg-background text-foreground flex min-h-screen flex-col antialiased">
+  <body class="text-foreground flex min-h-screen flex-col antialiased">
     {showHeader ? (
       <SiteHeader
         client:load
@@ -146,7 +147,7 @@ const isProMember = isPro === true;
     <main
       class:list={[
         'mx-auto w-full flex-1 px-3',
-        wideContent ? 'board-shell-wide' : 'max-w-3xl',
+        wideContent ? 'board-shell-wide' : 'max-w-[36rem]',
         showHeader ? 'py-5 sm:py-6' : 'flex flex-col items-center justify-center py-10 sm:py-12',
       ]}
     >
@@ -154,7 +155,7 @@ const isProMember = isPro === true;
     </main>
     <div class="site-footer-wrap mt-auto pt-8 sm:pt-10">
       <footer class="text-muted-foreground py-5 text-center text-xs leading-relaxed">
-        <div class="mx-auto max-w-3xl px-3">
+        <div class="mx-auto max-w-[36rem] px-3">
           <p>
             Breathe is produced by{' '}
             <a

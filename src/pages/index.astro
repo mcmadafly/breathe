@@ -1,5 +1,6 @@
 ---
 import { TODO_BOARD_EXPAND_SHELL_CHARS } from '@/lib/todo-limits';
+import { WelcomeBanner } from '@/components/welcome-banner';
 import { TodoBoardIsland, type TodoListRow, type TodoRow } from '@/components/todo-board-island';
 import { listTodoListsForUser } from '@/lib/db/todo-lists';
 import { listTodosForUser } from '@/lib/db/todos';
@@ -47,5 +48,12 @@ const todoBoardInitiallyWide = rows.some(
   adaptiveShell
   todoBoardInitiallyWide={todoBoardInitiallyWide}
 >
-  <TodoBoardIsland client:only="react" initialTodos={initialTodos} initialLists={initialLists} isPro={isPro} />
+  <WelcomeBanner client:only="react" />
+  <TodoBoardIsland
+    client:only="react"
+    initialTodos={initialTodos}
+    initialLists={initialLists}
+    isPro={isPro}
+    isAnonymous={isAnonymous}
+  />
 </BaseLayout>

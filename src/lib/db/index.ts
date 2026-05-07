@@ -17,9 +17,10 @@ type TursoSyncDatabase = {
  * Cloudflare Workers expose `env` via `getEnv`. Precedence:
  * - **astro dev**: root `.env` / Vite (`process` + `import.meta`) before `getEnv`, so Miniflare /
  *   `.dev.vars` does not override a working `.env`.
- * - **production**: `import.meta.env` from `astro build` before `getEnv` when the value is a real
- *   remote/libsql URL. CI often bakes `:memory:` when `TURSO_DATABASE_URL` is unset (see
- *   `deploy-worker.yml`); that must not override Worker Turso secrets on spirare.io.
+ * - **production (Worker)**: `getEnv` before baked `import.meta.env`, so dashboard / `wrangler secret`
+ *   wins over a `libsql://…` URL from a developer machine’s `.env` at `npm run build` time. CI still
+ *   bakes `:memory:` when unset (see `deploy-worker.yml`); that stays ignored on the edge via
+ *   `bakedTursoUrlIgnoredOnWorker`, then Worker secrets apply.
  */
 const prefersLocalEnvFiles = import.meta.env.DEV === true;
 
@@ -41,12 +42,14 @@ function readTursoUrl(): string | undefined {
       return process.env.TURSO_DATABASE_URL;
     const im = import.meta.env.TURSO_DATABASE_URL;
     if (im !== undefined && im !== '') return im;
-  } else {
-    const im = import.meta.env.TURSO_DATABASE_URL;
-    if (im !== undefined && im !== '' && !bakedTursoUrlIgnoredOnWorker(im)) return im;
+    const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
+    if (g !== undefined && g !== '') return g;
+    return import.meta.env.TURSO_DATABASE_URL;
   }
-  const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
-  if (g !== undefined && g !== '') return g;
+  const gWorker = getEnv('TURSO_DATABASE_URL') as string | undefined;
+  if (gWorker !== undefined && gWorker !== '') return gWorker;
+  const im = import.meta.env.TURSO_DATABASE_URL;
+  if (im !== undefined && im !== '' && !bakedTursoUrlIgnoredOnWorker(im)) return im;
   if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
     return process.env.TURSO_DATABASE_URL;
   return import.meta.env.TURSO_DATABASE_URL;
@@ -58,12 +61,14 @@ function readTursoAuthToken(): string | undefined {
       return process.env.TURSO_AUTH_TOKEN;
     const im = import.meta.env.TURSO_AUTH_TOKEN;
     if (im !== undefined && im !== '') return im;
-  } else {
-    const im = import.meta.env.TURSO_AUTH_TOKEN;
-    if (im !== undefined && im !== '') return im;
+    const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
+    if (g !== undefined && g !== '') return g;
+    return import.meta.env.TURSO_AUTH_TOKEN;
   }
-  const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
-  if (g !== undefined && g !== '') return g;
+  const gWorker = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
+  if (gWorker !== undefined && gWorker !== '') return gWorker;
+  const im = import.meta.env.TURSO_AUTH_TOKEN;
+  if (im !== undefined && im !== '') return im;
   if (typeof process !== 'undefined' && process.env.TURSO_AUTH_TOKEN)
     return process.env.TURSO_AUTH_TOKEN;
   return import.meta.env.TURSO_AUTH_TOKEN;

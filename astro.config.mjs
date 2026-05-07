@@ -80,6 +80,8 @@ export default defineConfig({
     define: {
       'import.meta.env.SCRIBBBLES_E2E': JSON.stringify(e2eDev),
       'import.meta.env.SCRIBBBLES_CF_SSR': JSON.stringify(cfSsrBuild),
+      /** DB layer uses this instead of `import.meta.env.SCRIBBBLES_CF_SSR` so Vite does not merge `.env` secrets into every `import.meta.env` read. */
+      __SCRIBBBLES_CF_SSR_BUNDLE__: JSON.stringify(cfSsrBuild),
     },
     optimizeDeps: {
       include: [

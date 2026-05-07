@@ -1,6 +1,9 @@
 /// <reference types="astro/client" />
 /// <reference types="@clerk/astro/env" />
 
+/** Injected by `astro.config.mjs` `vite.define` when `SCRIBBBLES_CF_SSR_BUILD=1` (see `package.json` `build`). */
+declare const __SCRIBBBLES_CF_SSR_BUNDLE__: boolean;
+
 declare namespace App {
   interface Locals {
     session: import('@/lib/auth/session').AppSession | null;

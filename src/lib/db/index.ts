@@ -14,123 +14,80 @@ type TursoSyncDatabase = {
 };
 
 /**
- * Cloudflare Workers expose `env` via `getEnv`. Precedence:
- * - **astro dev**: root `.env` / Vite (`process` + `import.meta`) before `getEnv`, so Miniflare /
- *   `.dev.vars` does not override a working `.env`.
- * - **production (Worker)**: `getEnv` before baked `import.meta.env`, so dashboard / `wrangler secret`
- *   wins over a `libsql://…` URL from a developer machine’s `.env` at `npm run build` time. CI still
- *   bakes `:memory:` when unset (see `deploy-worker.yml`); that stays ignored on the edge via
- *   `bakedTursoUrlIgnoredOnWorker`, then Worker secrets apply.
+ * Turso credentials on Cloudflare must come from Worker bindings (`cloudflare:workers` / `getEnv`).
+ *
+ * Do **not** read `import.meta.env.TURSO_*` in the Worker bundle: Vite inlines `.env` into the
+ * server chunk (including JWTs). A missing `getEnv` hit would then use the wrong DB or leak tokens.
+ *
+ * - **astro dev**: `process.env` from Vite + `.env`, then `getEnv`, then Miniflare.
+ * - **astro build (CI)**: `process.env` / `getEnv` during Node build; Worker runtime uses
+ *   `cloudflare:workers` first, then `getEnv`.
  */
-const prefersLocalEnvFiles = import.meta.env.DEV === true;
+/** Avoid `import.meta.env.*` here: Vite merges all `.env` keys (including Turso JWT) into that object. */
+const prefersLocalEnvFiles =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
-const isCfSsrBundle =
-  import.meta.env.SCRIBBBLES_CF_SSR === true || import.meta.env.SCRIBBBLES_CF_SSR === 'true';
-
-/** Build-time URL that should not win over Worker `env` on Cloudflare (CI placeholder or unusable on edge). */
-function bakedTursoUrlIgnoredOnWorker(url: string | undefined): boolean {
-  if (url === undefined || url === '') return true;
-  const u = url.trim();
-  if (u.startsWith(':memory:')) return true;
-  if (isCfSsrBundle && /^file:/i.test(u)) return true;
-  return false;
-}
-
-function readTursoUrl(): string | undefined {
-  if (prefersLocalEnvFiles) {
-    if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
-      return process.env.TURSO_DATABASE_URL;
-    const im = import.meta.env.TURSO_DATABASE_URL;
-    if (im !== undefined && im !== '') return im;
-    const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
-    if (g !== undefined && g !== '') return g;
-    return import.meta.env.TURSO_DATABASE_URL;
-  }
-  const gWorker = getEnv('TURSO_DATABASE_URL') as string | undefined;
-  if (gWorker !== undefined && gWorker !== '') return gWorker;
-  const im = import.meta.env.TURSO_DATABASE_URL;
-  if (im !== undefined && im !== '' && !bakedTursoUrlIgnoredOnWorker(im)) return im;
-  if (typeof process !== 'undefined' && process.env.TURSO_DATABASE_URL)
-    return process.env.TURSO_DATABASE_URL;
-  return import.meta.env.TURSO_DATABASE_URL;
-}
-
-function readTursoAuthToken(): string | undefined {
-  if (prefersLocalEnvFiles) {
-    if (typeof process !== 'undefined' && process.env.TURSO_AUTH_TOKEN)
-      return process.env.TURSO_AUTH_TOKEN;
-    const im = import.meta.env.TURSO_AUTH_TOKEN;
-    if (im !== undefined && im !== '') return im;
-    const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
-    if (g !== undefined && g !== '') return g;
-    return import.meta.env.TURSO_AUTH_TOKEN;
-  }
-  const gWorker = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
-  if (gWorker !== undefined && gWorker !== '') return gWorker;
-  const im = import.meta.env.TURSO_AUTH_TOKEN;
-  if (im !== undefined && im !== '') return im;
-  if (typeof process !== 'undefined' && process.env.TURSO_AUTH_TOKEN)
-    return process.env.TURSO_AUTH_TOKEN;
-  return import.meta.env.TURSO_AUTH_TOKEN;
-}
+const isCfSsrBundle = __SCRIBBBLES_CF_SSR_BUNDLE__ === true;
 
 function readEnvKey(key: 'TURSO_USE_SYNC' | 'TURSO_SYNC_PATH'): string | undefined {
-  if (prefersLocalEnvFiles) {
-    if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
-    const im = import.meta.env[key];
-    if (im !== undefined && im !== '') return im;
-  } else {
-    const im = import.meta.env[key];
-    if (im !== undefined && im !== '') return im;
-  }
+  if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
   const g = getEnv(key) as string | undefined;
   if (g !== undefined && g !== '') return g;
-  if (typeof process !== 'undefined' && process.env[key]) return process.env[key];
-  return import.meta.env[key];
+  return undefined;
 }
 
-const remoteUrl = readTursoUrl();
-const authTokenRaw = readTursoAuthToken();
+async function resolveTursoDatabaseUrl(): Promise<string | undefined> {
+  if (prefersLocalEnvFiles) {
+    const p = process.env.TURSO_DATABASE_URL?.trim();
+    if (p) return p;
+    const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
+    if (g?.trim()) return g.trim();
+    return undefined;
+  }
+  if (isCfSsrBundle) {
+    try {
+      const { env: cfEnv } = await import('cloudflare:workers');
+      const v = cfEnv.TURSO_DATABASE_URL;
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    } catch {
+      /* `astro build` in Node, or non-Worker SSR */
+    }
+  }
+  const g = getEnv('TURSO_DATABASE_URL') as string | undefined;
+  if (g?.trim()) return g.trim();
+  const p = process.env.TURSO_DATABASE_URL?.trim();
+  if (p) return p;
+  return undefined;
+}
+
+async function resolveTursoAuthToken(): Promise<string | undefined> {
+  if (prefersLocalEnvFiles) {
+    const p = process.env.TURSO_AUTH_TOKEN?.trim();
+    if (p) return p;
+    const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
+    if (g?.trim()) return g.trim();
+    return undefined;
+  }
+  if (isCfSsrBundle) {
+    try {
+      const { env: cfEnv } = await import('cloudflare:workers');
+      const v = cfEnv.TURSO_AUTH_TOKEN;
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    } catch {
+      /* build in Node */
+    }
+  }
+  const g = getEnv('TURSO_AUTH_TOKEN') as string | undefined;
+  if (g?.trim()) return g.trim();
+  const p = process.env.TURSO_AUTH_TOKEN?.trim();
+  if (p) return p;
+  return undefined;
+}
 
 function envTruthy(v: string | undefined): boolean {
   if (v === undefined || v === '') return false;
   const s = String(v).trim().toLowerCase();
   return s === '1' || s === 'true' || s === 'yes';
-}
-
-const useTursoSyncFlag = envTruthy(readEnvKey('TURSO_USE_SYNC'));
-
-const tursoSyncPathRaw =
-  readEnvKey('TURSO_SYNC_PATH')?.trim() ?? '';
-
-/** Local filesystem path (`file:` prefix optional) for synced Turso SQLite files on disk. */
-const tursoSyncPath = tursoSyncPathRaw.replace(/^file:/i, '').trim();
-
-const allowNativeTursoSync = !isCfSsrBundle;
-
-const wantsTursoSyncConfig =
-  useTursoSyncFlag && remoteUrl.startsWith('libsql:') && tursoSyncPath.length > 0;
-
-const isTursoSyncMode = allowNativeTursoSync && wantsTursoSyncConfig;
-
-if (!allowNativeTursoSync && wantsTursoSyncConfig) {
-  console.warn(
-    '[db] TURSO_USE_SYNC is set but this bundle targets Cloudflare SSR; using remote libsql only.',
-  );
-}
-
-/** Remote Turso requires a token; pure local `file:` SQLite must not send a hosted JWT. */
-const authTokenForRemote = authTokenRaw || undefined;
-
-if (remoteUrl.startsWith('libsql://') && !authTokenForRemote) {
-  console.warn(
-    '[db] TURSO_DATABASE_URL is a hosted libsql:// URL but TURSO_AUTH_TOKEN is empty. ' +
-      'Turso returns HTTP 400 for unauthenticated requests; set the token from the Turso dashboard.',
-  );
-}
-
-if (!remoteUrl) {
-  throw new Error('Missing TURSO_DATABASE_URL');
 }
 
 function emptyExecuteResult(): ResultSet {
@@ -184,6 +141,35 @@ function wrapTursoSyncAsLibsqlClient(syncDb: TursoSyncDatabase): Client {
 }
 
 async function bootstrap() {
+  const remoteUrl = await resolveTursoDatabaseUrl();
+  if (!remoteUrl) {
+    throw new Error('Missing TURSO_DATABASE_URL');
+  }
+
+  const authTokenRaw = (await resolveTursoAuthToken()) || undefined;
+  const authTokenForRemote = authTokenRaw || undefined;
+
+  const useTursoSyncFlag = envTruthy(readEnvKey('TURSO_USE_SYNC'));
+  const tursoSyncPathRaw = readEnvKey('TURSO_SYNC_PATH')?.trim() ?? '';
+  const tursoSyncPath = tursoSyncPathRaw.replace(/^file:/i, '').trim();
+  const allowNativeTursoSync = !isCfSsrBundle;
+  const wantsTursoSyncConfig =
+    useTursoSyncFlag && remoteUrl.startsWith('libsql:') && tursoSyncPath.length > 0;
+  const isTursoSyncMode = allowNativeTursoSync && wantsTursoSyncConfig;
+
+  if (!allowNativeTursoSync && wantsTursoSyncConfig) {
+    console.warn(
+      '[db] TURSO_USE_SYNC is set but this bundle targets Cloudflare SSR; using remote libsql only.',
+    );
+  }
+
+  if (remoteUrl.startsWith('libsql://') && !authTokenForRemote) {
+    console.warn(
+      '[db] TURSO_DATABASE_URL is a hosted libsql:// URL but TURSO_AUTH_TOKEN is empty. ' +
+        'Turso returns HTTP 400 for unauthenticated requests; set the token from the Turso dashboard.',
+    );
+  }
+
   if (isTursoSyncMode) {
     const [{ connect }, { drizzle: drizzleTurso }] = await Promise.all([
       import('@tursodatabase/sync'),
@@ -204,7 +190,7 @@ async function bootstrap() {
       relations,
     });
     const libsqlClient = wrapTursoSyncAsLibsqlClient(syncDb);
-    return { db, libsqlClient, tursoSyncClient: syncDb };
+    return { db, libsqlClient, tursoSyncClient: syncDb, isUsingTursoSync: true };
   }
 
   const authToken =
@@ -222,12 +208,12 @@ async function bootstrap() {
     schema: schemaTables,
     relations,
   });
-  return { db, libsqlClient, tursoSyncClient: null };
+  return { db, libsqlClient, tursoSyncClient: null, isUsingTursoSync: false };
 }
 
-const { db, libsqlClient, tursoSyncClient } = await bootstrap();
+const { db, libsqlClient, tursoSyncClient, isUsingTursoSync } = await bootstrap();
 
-export const isUsingTursoSync = isTursoSyncMode;
+export { isUsingTursoSync };
 
 export { db };
 

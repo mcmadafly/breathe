@@ -144,6 +144,18 @@ function todoRowCollapsedPreviewTitle(row: TodoRow): string {
   return line ?? row.title;
 }
 
+/** Matches `startEdit` → initial `editDetailVisible` / which editor shell we show. */
+function todoRowOpensFullEditor(row: TodoRow): boolean {
+  if (row.body.trim().length > 0) return true;
+  if (/[\r\n]/.test(row.title)) {
+    const lines = row.title.split(/\r?\n/);
+    const title0 = (lines[0] ?? '').trimEnd();
+    const body0 = lines.slice(1).join('\n');
+    return body0.trim().length > 0 || title0.length > TODO_TITLE_MAX_LENGTH;
+  }
+  return row.title.length > TODO_TITLE_MAX_LENGTH;
+}
+
 /** Expanded view: prefer `body` from schema; else split multiline `title` after first line. */
 function todoRowExpandedPrimaryAndDetail(row: TodoRow): { primary: string; detail: string | null } {
   if (row.body.trim().length > 0) {
@@ -196,6 +208,9 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   } = props;
   const canExpand = todoRowCanExpand(row);
   const expandedDetails = expanded && canExpand ? todoRowExpandedPrimaryAndDetail(row) : null;
+  const opensFullEditor = todoRowOpensFullEditor(row);
+  /** Align read-mode title with the matching edit field (`editFieldClass` vs `editTitleInlineClass`). */
+  const readTitleInset = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
 
   const titleBlockClasses = cn(
     'min-w-0 break-words text-neutral-800 dark:text-neutral-100',
@@ -221,7 +236,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   );
 
   const editFieldClass = cn(
-    'field-sizing-content box-border min-h-10 w-full resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] px-4 py-2 text-[15px] leading-snug text-neutral-900 outline-none',
+    'field-sizing-content box-border min-h-10 w-full resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] py-2 pl-5 pr-4 text-[15px] leading-snug text-neutral-900 outline-none',
     'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
   );
 
@@ -229,7 +244,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   const editTitleInlineClass = cn(
     'field-sizing-content box-border min-h-0 w-full resize-none rounded-md bg-transparent outline-none',
     'shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)] dark:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]',
-    'pl-0 pr-2.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+    'pl-2.5 pr-2.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
     'focus-visible:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.18)] focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:focus-visible:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.2)] dark:focus-visible:ring-white/15',
     titleEditTypography,
   );
@@ -375,19 +390,20 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
       ) : (
         <div
           className={cn(
-            'flex min-w-0 gap-1',
+            'flex min-w-0',
+            canExpand ? (opensFullEditor ? 'gap-3' : 'gap-2.5') : 'gap-1',
             expanded && canExpand ? 'items-start' : 'items-center',
           )}
         >
           {expandedDetails ? (
             <div className="min-w-0 flex-1">
-              <p className={cn(titleBlockClasses)}>{expandedDetails.primary}</p>
+              <p className={cn(titleBlockClasses, readTitleInset)}>{expandedDetails.primary}</p>
               {expandedDetails.detail ? (
                 <div className={detailBlockClasses}>{expandedDetails.detail}</div>
               ) : null}
             </div>
           ) : (
-            <p className={cn(titleBlockClasses, 'min-w-0 flex-1')}>
+            <p className={cn(titleBlockClasses, readTitleInset, 'min-w-0 flex-1')}>
               {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}
             </p>
           )}
@@ -585,7 +601,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'absolute left-0 z-20 flex w-10 -translate-x-full justify-end pr-2',
-          editing || expanded ? 'top-2.5' : 'top-1/2 -translate-y-1/2',
+          (editing && !editingCompact) || expanded ? 'top-2.5' : 'top-1/2 -translate-y-1/2',
         )}
       >
         <button

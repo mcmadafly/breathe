@@ -139,6 +139,10 @@ function todoRowCanExpand(row: TodoRow): boolean {
   return row.body.length > 0 || /[\r\n]/.test(row.title);
 }
 
+function todoRowExceedsShellChars(row: TodoRow): boolean {
+  return row.title.length + row.body.length > TODO_BOARD_EXPAND_SHELL_CHARS;
+}
+
 function todoRowCollapsedPreviewTitle(row: TodoRow): string {
   const line = row.title.split(/\r?\n/, 1)[0];
   return line ?? row.title;
@@ -209,13 +213,22 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   const canExpand = todoRowCanExpand(row);
   const expandedDetails = expanded && canExpand ? todoRowExpandedPrimaryAndDetail(row) : null;
   const opensFullEditor = todoRowOpensFullEditor(row);
-  /** Align read-mode title with the matching edit field (`editFieldClass` vs `editTitleInlineClass`). */
-  const readTitleInset = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
+  /** Horizontal inset matches edit fields; vertical padding only when expanded (collapsed is strict one line). */
+  const readTitleInsetExpanded = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
+  const readTitleInsetCollapsed = opensFullEditor ? 'pl-5' : 'pl-2.5';
 
   const titleBlockClasses = cn(
-    'min-w-0 break-words text-neutral-800 dark:text-neutral-100',
-    canExpand && !expanded ? 'line-clamp-1 text-sm leading-snug' : 'whitespace-pre-wrap',
-    hasLongTodo && (!canExpand || expanded) ? 'text-[15px] leading-relaxed' : 'text-sm leading-snug',
+    'min-w-0 text-neutral-800 dark:text-neutral-100',
+    expanded
+      ? cn(
+          'break-words whitespace-pre-wrap',
+          hasLongTodo && (!canExpand || expanded) ? 'text-[15px] leading-relaxed' : 'text-sm leading-snug',
+        )
+      : cn(
+          /* truncate: strict one line (avoid line-clamp + break-words flex glitch). */
+          'truncate text-sm leading-snug',
+          hasLongTodo && !canExpand ? 'text-[15px] leading-snug' : null,
+        ),
     row.done && 'text-[#8e8e8e] line-through decoration-neutral-400/80 dark:text-neutral-500',
     !row.done && 'font-normal',
   );
@@ -250,7 +263,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   );
 
   return (
-    <div className="min-w-0 flex-1">
+    <div className={cn('min-w-0 flex-1', editingId !== row.id && 'overflow-hidden')}>
       {editingId === row.id ? (
         <div
           className="flex min-w-0 flex-1 flex-col gap-4 outline-none"
@@ -396,14 +409,17 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
           )}
         >
           {expandedDetails ? (
-            <div className="min-w-0 flex-1">
-              <p className={cn(titleBlockClasses, readTitleInset)}>{expandedDetails.primary}</p>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className={cn(titleBlockClasses, readTitleInsetExpanded)}>{expandedDetails.primary}</p>
               {expandedDetails.detail ? (
                 <div className={detailBlockClasses}>{expandedDetails.detail}</div>
               ) : null}
             </div>
           ) : (
-            <p className={cn(titleBlockClasses, readTitleInset, 'min-w-0 flex-1')}>
+            <p
+              className={cn(titleBlockClasses, readTitleInsetCollapsed, 'min-w-0 flex-1 py-0')}
+              title={mergeTodoContent(row.title, row.body)}
+            >
               {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}
             </p>
           )}
@@ -416,7 +432,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
                 'flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 outline-none',
                 'transition-colors hover:bg-neutral-200/70 hover:text-neutral-600',
                 'focus-visible:ring-2 focus-visible:ring-neutral-900/15 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-300 dark:focus-visible:ring-white/20',
-                expanded && 'pt-0.5',
+                expanded && 'pt-1.5',
               )}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
@@ -467,7 +483,11 @@ function StaticTodoLi(props: TodoLiSharedProps) {
           'flex min-w-0 w-full rounded-2xl transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
           'gap-2.5 py-3.5 px-3.5',
           vAlign,
-          hasLongTodo && !editing ? 'min-h-[3rem]' : !editing || editingCompact ? 'min-h-[2.75rem]' : null,
+          expanded || (editing && !editingCompact)
+            ? todoRowExceedsShellChars(row)
+              ? 'min-h-[3rem]'
+              : null
+            : 'min-h-[2.75rem]',
           editingId !== row.id && (!canExpand || expanded) && 'cursor-pointer',
         )}
         onClick={(e) => {
@@ -526,8 +546,8 @@ function StaticTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          expanded && !editing && 'pt-0.5',
-          editing && !editingCompact && 'self-start pt-1.5',
+          /* `self-start`: avoid stretch + `items-center` vertically centering ⋯/trash on tall rows. */
+          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
         )}
       >
         <Button
@@ -600,8 +620,9 @@ function SortableTodoLi(props: TodoLiSharedProps) {
     <li ref={setNodeRef} style={style} className="group relative min-w-0">
       <div
         className={cn(
-          'absolute left-0 z-20 flex w-10 -translate-x-full justify-end pr-2',
-          (editing && !editingCompact) || expanded ? 'top-2.5' : 'top-1/2 -translate-y-1/2',
+          'absolute left-0 z-20 flex w-10 -translate-x-full items-start justify-end pr-2',
+          /* Align with card `py-3.5` content edge (matches checkbox row vs collapsed `top-1/2`). */
+          (editing && !editingCompact) || expanded ? 'top-3.5' : 'top-1/2 -translate-y-1/2',
         )}
       >
         <button
@@ -630,7 +651,11 @@ function SortableTodoLi(props: TodoLiSharedProps) {
           'flex min-w-0 w-full rounded-2xl transition-colors hover:bg-neutral-100/90 dark:hover:bg-white/[0.06]',
           'gap-2.5 py-3.5 px-3.5',
           vAlign,
-          hasLongTodo && !editing ? 'min-h-[3rem]' : !editing || editingCompact ? 'min-h-[2.75rem]' : null,
+          expanded || (editing && !editingCompact)
+            ? todoRowExceedsShellChars(row)
+              ? 'min-h-[3rem]'
+              : null
+            : 'min-h-[2.75rem]',
           editingId !== row.id &&
             !disabled &&
             (!todoRowCanExpand(row) || expanded) &&
@@ -692,8 +717,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          expanded && !editing && 'pt-0.5',
-          editing && !editingCompact && 'self-start pt-1.5',
+          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
         )}
       >
         <Button
@@ -715,8 +739,8 @@ function SortableTodoLi(props: TodoLiSharedProps) {
           <Trash2 className="size-4" />
         </Button>
       </div>
-      </div>
-    </li>
+    </div>
+  </li>
   );
 }
 
@@ -758,9 +782,11 @@ export function TodoBoard({
 }: Props) {
   const checkboxRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const skipEditBlurSaveRef = useRef(false);
-  const [items, setItems] = useState<TodoRow[]>(() => sortTodoRows([...initialTodos], initialLists));
-  const [lists, setLists] = useState<TodoListRow[]>(initialLists);
-  const listsRef = useRef<TodoListRow[]>(initialLists);
+  const [items, setItems] = useState<TodoRow[]>(() =>
+    sortTodoRows([...initialTodos], isPro ? initialLists : []),
+  );
+  const [lists, setLists] = useState<TodoListRow[]>(() => (isPro ? initialLists : []));
+  const listsRef = useRef<TodoListRow[]>(isPro ? initialLists : []);
   listsRef.current = lists;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -789,16 +815,24 @@ export function TodoBoard({
   const syncFromServer = useCallback(async (opts?: { bypassBusy?: boolean }) => {
     if (!opts?.bypassBusy && busyRef.current !== null) return;
     if (!opts?.bypassBusy && editingIdRef.current !== null) return;
-    const [tRes, lRes] = await Promise.all([actions.listTodos({}), actions.listTodoLists({})]);
+    const tRes = await actions.listTodos({});
     if (tRes.error || !tRes.data) return;
     const normalizedTodos = tRes.data.map(normalizeRow);
-    const nextLists = !lRes.error && lRes.data ? lRes.data.map(normalizeListRow) : listsRef.current;
-    if (!lRes.error && lRes.data) {
-      setLists(nextLists);
+
+    let nextLists: TodoListRow[];
+    if (isPro) {
+      const lRes = await actions.listTodoLists({});
+      nextLists = !lRes.error && lRes.data ? lRes.data.map(normalizeListRow) : listsRef.current;
+      if (!lRes.error && lRes.data) {
+        setLists(nextLists);
+      }
+    } else {
+      nextLists = [];
+      setLists([]);
     }
     listsRef.current = nextLists;
     setItems(sortTodoRows(normalizedTodos, nextLists));
-  }, []);
+  }, [isPro]);
 
   useEffect(() => {
     if (!initialTodoDataFailed) return;
@@ -818,6 +852,13 @@ export function TodoBoard({
   useEffect(() => {
     if (!isPro || isAnonymous) setFilter('all');
   }, [isPro, isAnonymous]);
+
+  useEffect(() => {
+    if (!isPro) {
+      setListsOpen(false);
+      setListFormOpen(false);
+    }
+  }, [isPro]);
 
   useEffect(() => {
     if (filter === 'all') return;
@@ -997,7 +1038,9 @@ export function TodoBoard({
   }, [hasLongTodo]);
 
   const showCategoryNav = !isAnonymous;
-  const categoriesLocked = showCategoryNav && !isPro;
+  /** Lists / categories UI is Pro-only; todos still use list ids internally on every tier. */
+  const showListsChrome = isPro && showCategoryNav;
+  const categoriesLocked = false;
 
   const activeListName = useMemo(() => {
     if (filter === 'all') return 'All';
@@ -1450,7 +1493,8 @@ export function TodoBoard({
         aria-controls="lists-drawer-panel"
         className={cn(
           // self-start: do not stretch to drawer height (sidebar stays tall when collapsed).
-          'flex shrink-0 cursor-pointer flex-col items-center justify-start self-start border-0 bg-transparent p-0 shadow-none outline-none',
+          // z-30: stay above todo reorder grips (`z-20`) when lanes overlap at tight breakpoints.
+          'relative z-30 flex shrink-0 cursor-pointer flex-col items-center justify-start self-start border-0 bg-transparent p-0 shadow-none outline-none',
           noTodosYet ? 'min-h-0' : 'min-h-[11rem]',
           'lg:mt-2 lg:min-h-0 lg:pt-0',
           'text-xs font-medium tracking-tight text-[#8e8e8e] transition-colors duration-150 ease-out hover:text-[#f97316]',
@@ -1677,15 +1721,17 @@ export function TodoBoard({
           'mx-auto flex w-full min-w-0 max-w-none flex-row items-start gap-2 sm:gap-2.5',
         )}
       >
-        {showCategoryNav ? listsDrawer : null}
+        {showListsChrome ? listsDrawer : null}
         <div
           className={cn(
             'min-w-0 flex-1 rounded-[1.75rem]',
             'bg-transparent shadow-none ring-0 dark:bg-transparent dark:shadow-none dark:ring-0',
+            /** Clear `w-10` grips (`-translate-x-full`) beside the lists strip on large screens. */
+            showListsChrome && 'lg:pl-12',
           )}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-2 sm:gap-3">
-            {showCategoryNav ? (
+            {showListsChrome ? (
               <div
                 className={cn(
                   'lg:hidden -mr-4 px-4',

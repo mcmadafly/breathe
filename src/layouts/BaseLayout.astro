@@ -4,6 +4,7 @@ import '../styles/global.css';
 import type { AppSession } from '@/lib/auth/session';
 
 import { SiteHeader } from '@/components/site-header';
+import { SubscriberPathBanner } from '@/components/subscriber-path-banner';
 import { BREATHE_GITHUB_REPO_URL, SITE_DESCRIPTION, TAECHO_SITE_URL } from '@/lib/site';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -38,6 +39,8 @@ const {
 const skipAuth = import.meta.env.SKIP_AUTH === 'true';
 const homeHref = '/';
 const isProMember = isPro === true;
+const subscriberBannerDismissed = Astro.locals.subscriberBannerDismissed === true;
+const subscriberBannerCanDismiss = Boolean(session?.user?.id);
 ---
 
 <!doctype html>
@@ -130,6 +133,14 @@ const isProMember = isPro === true;
     </script>
   </head>
   <body class="text-foreground flex min-h-screen flex-col antialiased">
+    {showHeader && !isProMember ? (
+      <SubscriberPathBanner
+        client:load
+        wideLayout={wideContent}
+        initialDismissed={subscriberBannerDismissed}
+        canDismiss={subscriberBannerCanDismiss}
+      />
+    ) : null}
     {showHeader ? (
       <SiteHeader
         client:load

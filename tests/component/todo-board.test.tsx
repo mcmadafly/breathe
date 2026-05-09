@@ -56,4 +56,12 @@ describe('TodoBoard', () => {
     expect(screen.queryByRole('tablist', { name: 'Categories' })).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Categories' })).not.toBeInTheDocument();
   });
+
+  it('hides list navigation for signed-in free tier (lists are Pro-only)', () => {
+    render(<TodoBoard initialTodos={[]} initialLists={getTestLists()} isPro={false} />);
+    expect(screen.queryByRole('tablist', { name: 'Categories' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Categories' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Categories' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/show lists/i)).not.toBeInTheDocument();
+  });
 });

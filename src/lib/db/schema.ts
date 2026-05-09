@@ -13,6 +13,10 @@ export const users = sqliteTable('users', {
   stripeCustomerId: text('stripe_customer_id'),
   /** Present for active monthly subscriptions; used for billing UI and webhook sync. */
   stripeSubscriptionId: text('stripe_subscription_id'),
+  /** Top promo banner (“path to 100”) dismissed by user; synced across devices. */
+  subscriberBannerDismissed: integer('subscriber_banner_dismissed', { mode: 'boolean' })
+    .notNull()
+    .default(false),
 });
 
 export const todoLists = sqliteTable('todo_lists', {

@@ -9,6 +9,12 @@ import { cn } from '@/lib/utils';
 
 const accentBtn = cn('rounded-xl px-6 font-semibold', breatheAccentCta);
 
+/** Display-only MSRP for marketing (Stripe still charges the amounts below). */
+const UPGRADE_MONTHLY_MSRP = '$9.99';
+const UPGRADE_MONTHLY_PRICE = '$1.99';
+const UPGRADE_LIFETIME_MSRP = '$150';
+const UPGRADE_LIFETIME_PRICE = '$99';
+
 type Busy = 'monthly' | 'lifetime' | 'free' | null;
 
 export interface UpgradePlansProps {
@@ -74,7 +80,10 @@ function ProMemberMonthly({
       <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">Your subscription</h1>
       <p className="leading-relaxed">
         You&apos;re on{' '}
-        <strong className="text-foreground">Breathe Pro — $1.99/month</strong>. Categories, unlimited todos, and lists are
+        <strong className="text-foreground">
+          Breathe Pro — {UPGRADE_MONTHLY_PRICE}/month
+        </strong>
+        . Categories, unlimited todos, and lists are
         included, and you can cancel whenever you like.
       </p>
       {stripeCustomerId ? (
@@ -330,6 +339,10 @@ export function UpgradePlans({
         <p className="text-muted-foreground mx-auto mt-2 max-w-lg text-sm sm:text-base">
           Unlock categories, unlimited todos, and lists. Pay securely with Stripe.
         </p>
+        <p className="text-muted-foreground mx-auto mt-4 max-w-xl text-pretty text-sm italic leading-relaxed sm:text-[15px]">
+          For a limited time we&apos;re offering a discount on both plans for our first 100 subscribers — about{' '}
+          <span className="text-foreground font-medium">one tenth</span> the usual price.
+        </p>
       </header>
 
       {!stripeBillingConfigured ? (
@@ -355,10 +368,26 @@ export function UpgradePlans({
             'dark:border-white/[0.07]',
           )}
         >
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Monthly</p>
-          <p className="text-foreground mt-2 text-3xl font-semibold tabular-nums">
-            $1.99<span className="text-muted-foreground text-lg font-normal">/mo</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Monthly</p>
+            <span className="rounded-full bg-[#f97316]/12 px-2 py-0.5 text-[11px] font-semibold text-[#c2410c] dark:text-[#fdba74]">
+              Intro pricing
+            </span>
+          </div>
+          <p className="text-foreground mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
+            <span
+              className="text-muted-foreground text-lg font-medium line-through decoration-muted-foreground/80"
+              aria-hidden="true"
+            >
+              {UPGRADE_MONTHLY_MSRP}
+            </span>
+            <span className="sr-only">Limited-time price </span>
+            <span className="text-3xl font-semibold">
+              {UPGRADE_MONTHLY_PRICE}
+              <span className="text-muted-foreground text-lg font-normal">/mo</span>
+            </span>
           </p>
+          <p className="text-muted-foreground mt-1 text-xs">Normally {UPGRADE_MONTHLY_MSRP}/mo — save vs standard rate.</p>
           <p className="text-muted-foreground mt-2 text-sm">Cancel anytime</p>
           <ul className="text-muted-foreground mt-4 space-y-2 text-sm">
             <li>Unlimited todos and todo lists</li>
@@ -386,8 +415,25 @@ export function UpgradePlans({
           <span className="absolute right-4 top-4 rounded-full bg-[#f97316]/15 px-2.5 py-0.5 text-xs font-semibold text-[#c2410c] dark:text-[#fdba74]">
             Best value
           </span>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Lifetime</p>
-          <p className="text-foreground mt-2 text-3xl font-semibold tabular-nums">$99</p>
+          <div className="flex flex-wrap items-center gap-2 pr-16">
+            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Lifetime</p>
+            <span className="rounded-full bg-[#f97316]/12 px-2 py-0.5 text-[11px] font-semibold text-[#c2410c] dark:text-[#fdba74]">
+              Intro pricing
+            </span>
+          </div>
+          <p className="text-foreground mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
+            <span
+              className="text-muted-foreground text-lg font-medium line-through decoration-muted-foreground/80"
+              aria-hidden="true"
+            >
+              {UPGRADE_LIFETIME_MSRP}
+            </span>
+            <span className="sr-only">Limited-time price </span>
+            <span className="text-3xl font-semibold">{UPGRADE_LIFETIME_PRICE}</span>
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Normally {UPGRADE_LIFETIME_MSRP} — limited-time discount at checkout.
+          </p>
           <p className="text-muted-foreground mt-2 text-sm">One payment — use Pro for as long as we offer the product.</p>
           <ul className="text-muted-foreground mt-4 space-y-2 text-sm">
             <li>Unlimited todos and todo lists — locked in for life</li>

@@ -240,7 +240,8 @@
 /* Focus / zen mode: fade chrome; exit control is fixed in SiteHeader. */
 @layer components {
   html.zen-mode .site-header-root,
-  html.zen-mode .site-footer-wrap {
+  html.zen-mode .site-footer-wrap,
+  html.zen-mode .subscriber-path-banner {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.35s ease;
@@ -248,7 +249,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     html.zen-mode .site-header-root,
-    html.zen-mode .site-footer-wrap {
+    html.zen-mode .site-footer-wrap,
+    html.zen-mode .subscriber-path-banner {
       transition: none;
     }
   }

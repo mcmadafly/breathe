@@ -9,8 +9,9 @@ import {
   routeNeedsAnonymousSession,
 } from '@/lib/auth/anonymous-session';
 import { ensureUser } from '@/lib/auth/ensure-user';
-import { getDevSession, isForcePro, isSkipAuth } from '@/lib/auth/dev-session';
+import { getDevSession, isForceFree, isForcePro, isSkipAuth } from '@/lib/auth/dev-session';
 import type { AppSession } from '@/lib/auth/session';
+import { getSubscriberBannerDismissed } from '@/lib/db/subscriber-banner-dismissed';
 import { ensureTodoListsAndMigrate } from '@/lib/db/todo-lists';
 import { getUserProState } from '@/lib/db/user-pro-state';
 
@@ -32,6 +33,13 @@ function clerkUserToSession(user: User): AppSession {
 }
 
 async function refreshProStatus(context: APIContext) {
+  if (isForceFree()) {
+    context.locals.isPro = false;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
+    return;
+  }
   if (isForcePro()) {
     context.locals.isPro = true;
     context.locals.proPlan = null;
@@ -61,11 +69,21 @@ async function refreshProStatus(context: APIContext) {
   context.locals.stripeSubscriptionId = row.stripeSubscriptionId;
 }
 
+async function refreshSubscriberBannerDismissed(context: APIContext) {
+  const uid = context.locals.session?.user?.id;
+  if (!uid) {
+    context.locals.subscriberBannerDismissed = false;
+    return;
+  }
+  context.locals.subscriberBannerDismissed = await getSubscriberBannerDismissed(uid);
+}
+
 export const onRequest = clerkMiddleware(async (auth, context, next) => {
   context.locals.isPro = false;
   context.locals.proPlan = null;
   context.locals.stripeCustomerId = null;
   context.locals.stripeSubscriptionId = null;
+  context.locals.subscriberBannerDismissed = false;
   context.locals.session = null;
   context.locals.isAnonymous = false;
 
@@ -86,6 +104,7 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       await ensureTodoListsAndMigrate(session.user.id);
     }
     await refreshProStatus(context);
+    await refreshSubscriberBannerDismissed(context);
     return next();
   }
 
@@ -119,6 +138,7 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
   }
 
   await refreshProStatus(context);
+  await refreshSubscriberBannerDismissed(context);
 
   if (isProtectedRoute(context.request)) {
     if (!context.locals.session?.user?.id || context.locals.isAnonymous) {

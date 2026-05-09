@@ -50,6 +50,13 @@
       "when": 1777954954543,
       "tag": "0006_stripe_subscription_id",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1777960000000,
+      "tag": "0007_subscriber_banner_dismissed",
+      "breakpoints": true
     }
   ]
 }

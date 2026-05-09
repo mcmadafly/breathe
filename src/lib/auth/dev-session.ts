@@ -28,6 +28,13 @@ function rawForcePro(): string | undefined {
   );
 }
 
+function rawForceFree(): string | undefined {
+  return (
+    import.meta.env.FORCE_FREE ??
+    (typeof process !== 'undefined' ? process.env.FORCE_FREE : undefined)
+  );
+}
+
 function truthyFlag(v: string | undefined): boolean {
   if (v === undefined || v === '') return false;
   const s = String(v).trim().toLowerCase();
@@ -40,4 +47,9 @@ export function isSkipAuth(): boolean {
 
 export function isForcePro(): boolean {
   return truthyFlag(rawForcePro());
+}
+
+/** Local preview of free tier / upgrade UX; overrides DB Pro and {@link isForcePro}. */
+export function isForceFree(): boolean {
+  return truthyFlag(rawForceFree());
 }

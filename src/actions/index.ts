@@ -3,7 +3,7 @@ import { and, asc, count, eq, max, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { listTodoListsForUser } from '@/lib/db/todo-lists';
+import { ensureTodoListsAndMigrate, listTodoListsForUser } from '@/lib/db/todo-lists';
 import { listTodosForUser } from '@/lib/db/todos';
 import {
   fetchOwnedTodoRow,
@@ -15,6 +15,7 @@ import {
   updateTodoPositionsRaw,
   updateTodoToggleDynamic,
 } from '@/lib/db/todo-table-capabilities';
+import { setSubscriberBannerDismissed } from '@/lib/db/subscriber-banner-dismissed';
 import { todoLists, todos, users } from '@/lib/db/schema';
 import { isAnonymousUserId } from '@/lib/auth/anonymous-session';
 import {
@@ -79,7 +80,11 @@ export const server = {
     accept: 'json',
     input: z.object({}),
     handler: async (_input, context) => {
+      if (!context.locals.isPro) {
+        return [];
+      }
       const userId = await requireUserId(context);
+      await ensureTodoListsAndMigrate(userId);
       return listTodoListsForUser(userId);
     },
   }),
@@ -112,6 +117,16 @@ export const server = {
         console.warn('[upgradeToPro] full update failed; setting is_pro only', err);
         await db.update(users).set({ isPro: true }).where(eq(users.id, userId));
       }
+      return { ok: true as const };
+    },
+  }),
+
+  dismissSubscriberBanner: defineAction({
+    accept: 'json',
+    input: z.object({}),
+    handler: async (_input, context) => {
+      const userId = await requireUserId(context);
+      await setSubscriberBannerDismissed(userId, true);
       return { ok: true as const };
     },
   }),

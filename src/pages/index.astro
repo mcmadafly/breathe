@@ -8,6 +8,8 @@ import { listTodosForUser } from '@/lib/db/todos';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 const session = Astro.locals.session!;
+const isPro = Astro.locals.isPro;
+const isAnonymous = Astro.locals.isAnonymous;
 
 let initialLists: TodoListRow[] = [];
 let initialTodos: TodoRow[] = [];
@@ -15,15 +17,17 @@ let todoBoardInitiallyWide = false;
 let initialTodoDataFailed = false;
 
 try {
-  const listRows = await listTodoListsForUser(session.user.id);
-  initialLists = listRows.map((r) => ({
-    id: r.id,
-    userId: r.userId,
-    name: r.name,
-    position: r.position,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }));
+  if (isPro) {
+    const listRows = await listTodoListsForUser(session.user.id);
+    initialLists = listRows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      name: r.name,
+      position: r.position,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+  }
 
   const rows = await listTodosForUser(session.user.id);
   initialTodos = rows.map((r) => ({
@@ -51,9 +55,6 @@ try {
   console.warn(`[index] todo SSR load skipped: ${hint}`);
   initialTodoDataFailed = true;
 }
-
-const isPro = Astro.locals.isPro;
-const isAnonymous = Astro.locals.isAnonymous;
 ---
 
 <BaseLayout

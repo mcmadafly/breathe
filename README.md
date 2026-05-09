@@ -2,6 +2,8 @@
 
 A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe. Build. Repeat.**
 
+Breathe is produced by [Taecho](https://taecho.io/) — an agency for the AI era.
+
 ## What’s in the box
 
 - **Todos:** Multiple lists, drag-and-drop ordering, notes on tasks, done state, limits and upgrade path for Pro (Stripe).

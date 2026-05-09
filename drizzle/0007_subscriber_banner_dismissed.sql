@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `subscriber_banner_dismissed` integer DEFAULT 0 NOT NULL;

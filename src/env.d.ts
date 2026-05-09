@@ -16,6 +16,8 @@ declare namespace App {
     stripeSubscriptionId: string | null;
     /** True when using cookie-backed anonymous user (`anon_*` id), before Clerk sign-in. */
     isAnonymous: boolean;
+    /** Top “path to subscribers” banner dismissed (persisted on `users`). */
+    subscriberBannerDismissed: boolean;
   }
 }
 
@@ -39,6 +41,8 @@ interface ImportMetaEnv {
   readonly SKIP_AUTH?: string;
   /** When "true", treats current session as Pro (for local testing). */
   readonly FORCE_PRO?: string;
+  /** When "true", treats current session as free / non-Pro (local preview of upgrade page & limits); wins over FORCE_PRO. */
+  readonly FORCE_FREE?: string;
   /** Stripe secret key (server only). */
   readonly STRIPE_SECRET_KEY?: string;
   /** Stripe webhook signing secret for `/api/stripe/webhook`. */

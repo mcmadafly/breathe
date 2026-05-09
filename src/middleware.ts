@@ -61,24 +61,22 @@ async function refreshProStatus(context: APIContext) {
   context.locals.stripeSubscriptionId = row.stripeSubscriptionId;
 }
 
-export const onRequest = clerkMiddleware(async (auth, context, next) => {
-  context.locals.isPro = false;
-  context.locals.proPlan = null;
-  context.locals.stripeCustomerId = null;
-  context.locals.stripeSubscriptionId = null;
-  context.locals.session = null;
-  context.locals.isAnonymous = false;
-
-  const pathname = context.url.pathname.replace(/\/$/, '') || '/';
-
-  if (pathname === '/signin') {
-    return context.redirect('/sign-in');
-  }
-
+export const onRequest = async (context: APIContext, next: () => Promise<Response>) => {
+  // Check SKIP_AUTH first, before invoking Clerk middleware
   if (isSkipAuth()) {
-    if (pathname === '/sign-in' || pathname === '/sign-up') {
+    context.locals.isPro = false;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
+    context.locals.session = null;
+    context.locals.isAnonymous = false;
+
+    const pathname = context.url.pathname.replace(/\/$/, '') || '/';
+
+    if (pathname === '/signin' || pathname === '/sign-in' || pathname === '/sign-up') {
       return context.redirect('/');
     }
+
     const session = getDevSession();
     context.locals.session = session;
     await ensureUser(session);
@@ -89,42 +87,58 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     return next();
   }
 
-  const { isAuthenticated, userId } = auth();
+  // Normal Clerk authentication flow
+  return clerkMiddleware(async (auth, context, next) => {
+    context.locals.isPro = false;
+    context.locals.proPlan = null;
+    context.locals.stripeCustomerId = null;
+    context.locals.stripeSubscriptionId = null;
+    context.locals.session = null;
+    context.locals.isAnonymous = false;
 
-  if (isAuthenticated && userId) {
-    await mergeAnonymousSessionIntoUser(context, userId);
+    const pathname = context.url.pathname.replace(/\/$/, '') || '/';
 
-    const user = await context.locals.currentUser();
-    if (user) {
-      context.locals.session = clerkUserToSession(user);
-    } else {
-      context.locals.session = {
-        user: {
-          id: userId,
-          email: `${userId}@users.clerk.local`,
-        },
-      };
-    }
-    await ensureUser(context.locals.session);
-    if (context.locals.session?.user?.id) {
-      await ensureTodoListsAndMigrate(context.locals.session.user.id);
-    }
-  } else if (routeNeedsAnonymousSession(pathname, context.url.searchParams)) {
-    const anonSession = await ensureAnonymousSession(context);
-    if (anonSession?.user?.id) {
-      context.locals.session = anonSession;
-      context.locals.isAnonymous = true;
-      await ensureTodoListsAndMigrate(anonSession.user.id);
-    }
-  }
-
-  await refreshProStatus(context);
-
-  if (isProtectedRoute(context.request)) {
-    if (!context.locals.session?.user?.id || context.locals.isAnonymous) {
+    if (pathname === '/signin') {
       return context.redirect('/sign-in');
     }
-  }
 
-  return next();
-});
+    const { isAuthenticated, userId } = auth();
+
+    if (isAuthenticated && userId) {
+      await mergeAnonymousSessionIntoUser(context, userId);
+
+      const user = await context.locals.currentUser();
+      if (user) {
+        context.locals.session = clerkUserToSession(user);
+      } else {
+        context.locals.session = {
+          user: {
+            id: userId,
+            email: `${userId}@users.clerk.local`,
+          },
+        };
+      }
+      await ensureUser(context.locals.session);
+      if (context.locals.session?.user?.id) {
+        await ensureTodoListsAndMigrate(context.locals.session.user.id);
+      }
+    } else if (routeNeedsAnonymousSession(pathname, context.url.searchParams)) {
+      const anonSession = await ensureAnonymousSession(context);
+      if (anonSession?.user?.id) {
+        context.locals.session = anonSession;
+        context.locals.isAnonymous = true;
+        await ensureTodoListsAndMigrate(anonSession.user.id);
+      }
+    }
+
+    await refreshProStatus(context);
+
+    if (isProtectedRoute(context.request)) {
+      if (!context.locals.session?.user?.id || context.locals.isAnonymous) {
+        return context.redirect('/sign-in');
+      }
+    }
+
+    return next();
+  })(context, next);
+};

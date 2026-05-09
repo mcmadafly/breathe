@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Upload Worker secrets from a local .env-style file (not committed).
+ * Upload Worker secrets from `cf-worker.secrets.env` (not committed).
  *
- *   cp .env cf-worker.secrets.env   # then trim to only keys you want on the Worker
+ *   npm run cf:secret:sync
  *   npm run build && npm run cf:secret:bulk
  *
  * Uses **`wrangler versions secret bulk`** (not `secret bulk`) so uploads work when the latest
@@ -28,9 +28,7 @@ if (!existsSync(file)) {
     [
       'cf-worker-secret-bulk: missing cf-worker.secrets.env in repo root (gitignored).',
       '',
-      'Create it with KEY=value lines, e.g. copy from production .env or old Pages env:',
-      '  TURSO_DATABASE_URL=libsql://…',
-      '  TURSO_AUTH_TOKEN=…',
+      'Create it with KEY=value lines (or run `npm run cf:secret:sync`):',
       '  PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_…',
       '  CLERK_SECRET_KEY=sk_live_…',
       '',

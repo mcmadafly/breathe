@@ -89,6 +89,18 @@ function normalizeRow(raw: unknown): TodoRow {
   };
 }
 
+/** Avoid redundant list updates when SSE / action responses only differ by timestamps (prevents double transition flashes). */
+function todoRowVisualEquals(a: TodoRow, b: TodoRow): boolean {
+  return (
+    a.id === b.id &&
+    a.done === b.done &&
+    a.title === b.title &&
+    a.body === b.body &&
+    a.listId === b.listId &&
+    a.position === b.position
+  );
+}
+
 function normalizeListRow(raw: unknown): TodoListRow {
   const r = raw as Record<string, unknown>;
   return {
@@ -884,6 +896,8 @@ export function TodoBoard({
         setItems((prev) => {
           const i = prev.findIndex((x) => x.id === row.id);
           if (i === -1) return sortTodoRows([...prev, row], listsRef.current);
+          const cur = prev[i]!;
+          if (todoRowVisualEquals(cur, row)) return prev;
           return sortTodoRows(
             prev.map((x) => (x.id === row.id ? row : x)),
             listsRef.current,
@@ -1105,7 +1119,11 @@ export function TodoBoard({
       return;
     }
     const row = normalizeRow(res.data);
-    setItems((prev) => prev.map((x) => (x.id === id ? row : x)));
+    setItems((prev) => {
+      const cur = prev.find((x) => x.id === id);
+      if (cur && todoRowVisualEquals(cur, row)) return prev;
+      return prev.map((x) => (x.id === id ? row : x));
+    });
     notifyOtherClients();
   }
 
@@ -1555,11 +1573,9 @@ export function TodoBoard({
               'box-border w-full resize-none rounded-xl border border-transparent px-4 text-[15px] text-neutral-900 outline-none',
               composerTitleAutoHeight
                 ? 'field-sizing-content min-h-10 max-h-none overflow-y-auto py-2 leading-snug [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
-                : '[field-sizing:fixed] h-10 max-h-10 min-h-0 overflow-hidden py-0 leading-[2.5rem]',
+                : '[field-sizing:fixed] h-10 max-h-10 min-h-0 overflow-hidden pt-px pb-0 leading-[calc(2.5rem-1px)]',
               'focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:text-white dark:focus-visible:ring-white/15',
-              composerOpen
-                ? 'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]'
-                : 'bg-transparent shadow-none dark:bg-transparent',
+              'bg-[#f7f7f7] shadow-inner shadow-black/[0.04] dark:bg-white/[0.06]',
               'placeholder:text-[#8e8e8e]',
             )}
           />
@@ -1670,11 +1686,8 @@ export function TodoBoard({
 
             <div
               className={cn(
-                'flex min-h-0 flex-col overflow-x-visible rounded-[1.35rem] border px-4',
+                'flex min-h-0 flex-col overflow-x-visible',
                 noTodosYet ? 'gap-1 pb-4 pt-2' : 'py-3 pb-4',
-                'border-black/[0.06] bg-white shadow-sm',
-                'dark:border-white/[0.06] dark:bg-[#242424] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]',
-                'dark:ring-1 dark:ring-white/[0.05]',
               )}
             >
               {formOrUpgrade}

@@ -2,11 +2,6 @@
 
 A minimal todo app with room to breathe—lists, tasks, and a calm UI. **Breathe. Build. Repeat.**
 
-Live site: **[spirare.io](https://spirare.io/)**. Cloudflare **Worker** script name in `wrangler.jsonc` defaults to **`breathe`**. (`npm run deploy:pages` uses a separate Pages **project** name via `CLOUDFLARE_PAGES_PROJECT` only if you use that optional path.)
-
-- **Site / product:** [Taecho](https://taecho.co) — source and issues live on [GitHub](https://github.com/mcmadafly/breathe). For a wider intro to Taecho (what we build, how we think about tools like Breathe), see **[taecho.io](https://taecho.io/)**.
-- **License:** [MIT](LICENSE) (copyright Taecho; see file for full text). In the running app, **`/mit-license`** shows the same license for easy reading.
-
 ## What’s in the box
 
 - **Todos:** Multiple lists, drag-and-drop ordering, notes on tasks, done state, limits and upgrade path for Pro (Stripe).

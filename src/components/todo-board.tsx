@@ -278,8 +278,8 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
           }}
         >
           {!editDetailVisible ? (
-            /** Same as read row: title + control are cross-centered (⋯ in read, Cancel here). */
-            <div className="flex min-w-0 items-center gap-2.5">
+            /** `min-h-8` + `h-8` Cancel match read row ⋯ (`size-8`) so outer row `items-center` does not jump. */
+            <div className="flex min-h-8 min-w-0 items-center gap-2.5">
               <textarea
                 autoFocus
                 aria-label="Task"
@@ -308,9 +308,8 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
               />
               <Button
                 type="button"
-                size="sm"
                 variant="ghost"
-                className="shrink-0 rounded-xl px-3 py-2"
+                className="h-8 shrink-0 rounded-lg px-2 text-[0.8rem] font-medium"
                 onPointerDown={() => {
                   skipEditBlurSaveRef.current = true;
                 }}
@@ -406,6 +405,8 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
             'flex min-w-0',
             canExpand ? (opensFullEditor ? 'gap-3' : 'gap-2.5') : 'gap-1',
             expanded && canExpand ? 'items-start' : 'items-center',
+            /* Match compact edit row (`min-h-8` + trailing control); avoids jump when … is absent (`!canExpand`). */
+            !expanded ? 'min-h-8' : null,
           )}
         >
           {expandedDetails ? (

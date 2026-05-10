@@ -41,6 +41,9 @@ import {
 } from '@/lib/todo-limits';
 import { mergeTodoContent, splitTodoContent } from '@/lib/todo-text';
 
+/** Read shows ⋯ (`size-8`); compact edit shows Cancel — same width avoids horizontal title jump. */
+const TODO_ROW_TRAILING_SLOT_W = 'w-[5.5rem]';
+
 export interface TodoListRow {
   id: string;
   userId: string;
@@ -210,11 +213,18 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
     cancelEditing,
     onToggleExpand,
   } = props;
+  const compactEditRef = useRef<HTMLInputElement>(null);
+  const fullTitleEditRef = useRef<HTMLTextAreaElement>(null);
   const canExpand = todoRowCanExpand(row);
   const expandedDetails = expanded && canExpand ? todoRowExpandedPrimaryAndDetail(row) : null;
+  const trailingReadSlotClass = cn(
+    'flex shrink-0 justify-end',
+    TODO_ROW_TRAILING_SLOT_W,
+    expanded && canExpand ? 'items-start' : 'items-center',
+  );
   const opensFullEditor = todoRowOpensFullEditor(row);
   /** Horizontal inset matches edit fields; vertical padding only when expanded (collapsed is strict one line). */
-  const readTitleInsetExpanded = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
+  const readTitleInsetExpanded = opensFullEditor ? 'pl-2 pb-2' : 'pl-2.5 py-1.5';
   const readTitleInsetCollapsed = opensFullEditor ? 'pl-5' : 'pl-2.5';
 
   const titleBlockClasses = cn(
@@ -239,9 +249,8 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
     row.done && 'text-[#8e8e8e]/90 line-through decoration-neutral-400/70 dark:text-neutral-500',
   );
 
-  /** Mirrors title line metrics in read mode so the caret/text does not jump when editing. */
-  const titleEditTypography = cn(
-    hasLongTodo && (!canExpand || expanded) ? 'text-[15px] leading-relaxed' : 'text-sm leading-snug',
+  const compactInlineTypography = cn(
+    hasLongTodo && !canExpand ? 'text-[15px]' : 'text-sm',
     !row.done
       ? 'text-neutral-800 dark:text-neutral-100'
       : 'text-[#8e8e8e] line-through decoration-neutral-400/80 dark:text-neutral-500',
@@ -250,20 +259,37 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
 
   const editFieldClass = cn(
     'field-sizing-content box-border min-h-10 w-full resize-none rounded-xl border border-neutral-200 bg-[#f7f7f7] py-2 pl-5 pr-4 text-[15px] leading-snug text-neutral-900 outline-none',
-    'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
+    'dark:border-neutral-600 dark:bg-white/5 dark:text-white',
+    'focus-visible:border-neutral-300/65 dark:focus-visible:border-neutral-500/45',
   );
 
-  /** Single-line inline edit: metrics match static title; inset “border” via shadow so the box doesn’t reflow vs `<p>`. */
-  const editTitleInlineClass = cn(
-    'field-sizing-content box-border min-h-0 w-full resize-none rounded-md bg-transparent outline-none',
+  /** Single-line inline: fixed height + stable inset edge — don’t change padding/shadow on focus (that was shifting the row). */
+  const compactInlineHeight =
+    hasLongTodo && (!canExpand || expanded) ? 'h-[2.5rem]' : 'h-[2.125rem]';
+  /** Match textarea band when collapsed so read vs compact-edit doesn’t change middle-column height (especially `!canExpand`, no ⋯). */
+  const collapsedBandMinH = !expanded
+    ? hasLongTodo && !canExpand
+      ? 'min-h-[2.5rem]'
+      : 'min-h-[2.125rem]'
+    : null;
+  /** Single-line `<input>` centers glyphs reliably; textareas sit text low in Chromium. */
+  const compactEditInputClass = cn(
+    'box-border min-h-0 w-full rounded-md border-0 bg-transparent px-2.5 py-0 outline-none',
+    compactInlineHeight,
     'shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)] dark:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]',
-    'pl-2.5 pr-2.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-    'focus-visible:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.18)] focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:focus-visible:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.2)] dark:focus-visible:ring-white/15',
-    titleEditTypography,
+    'focus-visible:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.16)] dark:focus-visible:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.18)]',
+    compactInlineTypography,
   );
+
+  useLayoutEffect(() => {
+    if (editingId !== row.id) return;
+    const el = !editDetailVisible ? compactEditRef.current : fullTitleEditRef.current;
+    el?.focus({ preventScroll: true });
+  }, [editingId, editDetailVisible, row.id]);
 
   return (
-    <div className={cn('min-w-0 flex-1', editingId !== row.id && 'overflow-hidden')}>
+    /** Avoid `overflow-hidden` on this shell: toggling it when editing/focusing caused row reflow / list “jump”. */
+    <div className="min-w-0 flex-1">
       {editingId === row.id ? (
         <div
           className="flex min-w-0 flex-1 flex-col gap-4 outline-none"
@@ -278,14 +304,13 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
           }}
         >
           {!editDetailVisible ? (
-            /** Same as read row: title + control are cross-centered (⋯ in read, Cancel here). */
-            <div className="flex min-w-0 items-center gap-2.5">
-              <textarea
-                autoFocus
+            <div className={cn('flex min-w-0 items-center gap-2.5', collapsedBandMinH)}>
+              <input
+                ref={compactEditRef}
+                type="text"
                 aria-label="Task"
                 value={mergeTodoContent(editTitle, editBody)}
                 maxLength={TODO_CONTENT_MAX_LENGTH}
-                rows={1}
                 onChange={(ev) => {
                   const v = ev.target.value.slice(0, TODO_CONTENT_MAX_LENGTH);
                   const { title, body } = splitTodoContent(v);
@@ -294,7 +319,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
                   setEditDetailVisible(body.length > 0);
                 }}
                 onKeyDown={(ev) => {
-                  if (ev.key === 'Enter' && !ev.shiftKey) {
+                  if (ev.key === 'Enter') {
                     ev.preventDefault();
                     void commitEdit(row.id);
                   }
@@ -304,28 +329,29 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
                     cancelEditing();
                   }
                 }}
-                className={cn(editTitleInlineClass, 'min-w-0 flex-1')}
+                className={cn(compactEditInputClass, 'min-w-0 flex-1')}
               />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="shrink-0 rounded-xl px-3 py-2"
-                onPointerDown={() => {
-                  skipEditBlurSaveRef.current = true;
-                }}
-                onClick={() => {
-                  cancelEditing();
-                }}
-              >
-                Cancel
-              </Button>
+              <div className={cn('flex shrink-0 items-center justify-end', TODO_ROW_TRAILING_SLOT_W)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 shrink-0 rounded-lg px-2 text-[0.8rem] font-medium"
+                  onPointerDown={() => {
+                    skipEditBlurSaveRef.current = true;
+                  }}
+                  onClick={() => {
+                    cancelEditing();
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           ) : (
             <>
               <div className="flex min-w-0 items-start gap-3">
                 <textarea
-                  autoFocus
+                  ref={fullTitleEditRef}
                   aria-label="Task title"
                   value={editTitle}
                   maxLength={TODO_TITLE_MAX_LENGTH}
@@ -350,20 +376,22 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
                   }}
                   className={cn(editFieldClass, 'min-w-0 flex-1')}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="mt-1 shrink-0 rounded-xl px-3 py-2"
-                  onPointerDown={() => {
-                    skipEditBlurSaveRef.current = true;
-                  }}
-                  onClick={() => {
-                    cancelEditing();
-                  }}
-                >
-                  Cancel
-                </Button>
+                <div className={cn('flex shrink-0 items-start justify-end', TODO_ROW_TRAILING_SLOT_W)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="mt-1 shrink-0 rounded-xl px-3 py-2"
+                    onPointerDown={() => {
+                      skipEditBlurSaveRef.current = true;
+                    }}
+                    onClick={() => {
+                      cancelEditing();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
               <div className="min-w-0">
                 <Label htmlFor={`todo-body-${row.id}`} className="mb-2 block text-xs font-medium text-muted-foreground">
@@ -406,6 +434,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
             'flex min-w-0',
             canExpand ? (opensFullEditor ? 'gap-3' : 'gap-2.5') : 'gap-1',
             expanded && canExpand ? 'items-start' : 'items-center',
+            collapsedBandMinH,
           )}
         >
           {expandedDetails ? (
@@ -416,33 +445,37 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
               ) : null}
             </div>
           ) : (
-            <p
-              className={cn(titleBlockClasses, readTitleInsetCollapsed, 'min-w-0 flex-1 py-0')}
-              title={mergeTodoContent(row.title, row.body)}
-            >
-              {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}
-            </p>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p
+                className={cn(titleBlockClasses, readTitleInsetCollapsed, 'min-w-0 truncate py-0')}
+                title={mergeTodoContent(row.title, row.body)}
+              >
+                {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}
+              </p>
+            </div>
           )}
-          {canExpand ? (
-            <button
-              type="button"
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse details' : 'Expand details'}
-              className={cn(
-                'flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 outline-none',
-                'transition-colors hover:bg-neutral-200/70 hover:text-neutral-600',
-                'focus-visible:ring-2 focus-visible:ring-neutral-900/15 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-300 dark:focus-visible:ring-white/20',
-                expanded && 'pt-1.5',
-              )}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand(row.id);
-              }}
-            >
-              <MoreHorizontal className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            </button>
-          ) : null}
+          <div className={trailingReadSlotClass}>
+            {canExpand ? (
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Collapse details' : 'Expand details'}
+                className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 outline-none',
+                  'transition-colors hover:bg-neutral-200/70 hover:text-neutral-600',
+                  'focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-neutral-900/15 dark:text-neutral-500 dark:hover:bg-white/10 dark:hover:text-neutral-300 dark:focus-visible:ring-white/20',
+                  expanded && 'pt-1.5',
+                )}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(row.id);
+                }}
+              >
+                <MoreHorizontal className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
@@ -474,8 +507,9 @@ function StaticTodoLi(props: TodoLiSharedProps) {
   const canExpand = todoRowCanExpand(row);
   const editing = editingId === row.id;
   const editingCompact = editing && !editDetailVisible;
-  /** Match read mode: collapsed rows use `items-center`. Full edit / expanded need top alignment. */
-  const vAlign = (editing && !editingCompact) || expanded ? 'items-start' : 'items-center';
+  const collapsedBand = !expanded && (!editing || editingCompact);
+  /** Collapsed band heights are fixed (`min-h-*` + compact input); centering aligns checkbox, field, actions. */
+  const vAlign = collapsedBand ? 'items-center' : 'items-start';
   return (
     <li className="group relative min-w-0">
       <div
@@ -546,8 +580,7 @@ function StaticTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          /* `self-start`: avoid stretch + `items-center` vertically centering ⋯/trash on tall rows. */
-          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
+          !collapsedBand && ((expanded && !editing) || (editing && !editingCompact)) ? 'pt-1.5' : null,
         )}
       >
         <Button
@@ -599,8 +632,8 @@ function SortableTodoLi(props: TodoLiSharedProps) {
   const disabled = editingId === row.id || busy === row.id;
   const editing = editingId === row.id;
   const editingCompact = editing && !editDetailVisible;
-  /** Match read mode: collapsed rows use `items-center`. Full edit / expanded need top alignment. */
-  const vAlign = (editing && !editingCompact) || expanded ? 'items-start' : 'items-center';
+  const collapsedBand = !expanded && (!editing || editingCompact);
+  const vAlign = collapsedBand ? 'items-center' : 'items-start';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled,
@@ -621,8 +654,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'absolute left-0 z-20 flex w-10 -translate-x-full items-start justify-end pr-2',
-          /* Align with card `py-3.5` content edge (matches checkbox row vs collapsed `top-1/2`). */
-          (editing && !editingCompact) || expanded ? 'top-3.5' : 'top-1/2 -translate-y-1/2',
+          collapsedBand ? 'top-1/2 -translate-y-1/2' : 'top-3.5',
         )}
       >
         <button
@@ -717,7 +749,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
+          !collapsedBand && ((expanded && !editing) || (editing && !editingCompact)) ? 'pt-1.5' : null,
         )}
       >
         <Button

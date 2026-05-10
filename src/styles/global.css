@@ -5,6 +5,11 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/manrope";
 
+/** Reserve scrollbar width so focusing inputs (scroll-into-view / overflow) doesn’t shift horizontal layout. */
+html {
+  scrollbar-gutter: stable;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

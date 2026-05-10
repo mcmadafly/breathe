@@ -25,6 +25,8 @@ local.db-*
 
 # macOS-specific files
 .DS_Store
+**/xcuserdata/
+*.xcworkspace/xcuserdata/
 
 # jetbrains setting folder
 .idea/

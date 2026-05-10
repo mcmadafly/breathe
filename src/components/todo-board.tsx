@@ -213,7 +213,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   const canExpand = todoRowCanExpand(row);
   const expandedDetails = expanded && canExpand ? todoRowExpandedPrimaryAndDetail(row) : null;
   const opensFullEditor = todoRowOpensFullEditor(row);
-  /** Horizontal inset matches edit fields; collapsed `py-*` matches inline/full edit so row cross-axis alignment does not jump on focus. */
+  /** Horizontal inset matches edit fields; collapsed read stays `py-0` (strict one line); compact inline edit omits vertical padding to match. */
   const readTitleInsetExpanded = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
   const readTitleInsetCollapsed = opensFullEditor ? 'pl-5' : 'pl-2.5';
 
@@ -253,11 +253,11 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
     'focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:border-neutral-600 dark:bg-white/5 dark:text-white dark:focus-visible:ring-white/15',
   );
 
-  /** Single-line inline edit: metrics match static title; inset “border” via shadow so the box doesn’t reflow vs `<p>`. */
+  /** Single-line inline edit: no vertical padding so height matches collapsed `<p>` (`py-0`) and row `items-center` does not shift. */
   const editTitleInlineClass = cn(
     'field-sizing-content box-border min-h-0 w-full resize-none rounded-md bg-transparent outline-none',
     'shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)] dark:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]',
-    'pl-2.5 pr-2.5 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+    'py-0 pl-2.5 pr-2.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
     'focus-visible:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.18)] focus-visible:ring-2 focus-visible:ring-neutral-900/10 dark:focus-visible:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.2)] dark:focus-visible:ring-white/15',
     titleEditTypography,
   );
@@ -417,12 +417,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
             </div>
           ) : (
             <p
-              className={cn(
-                titleBlockClasses,
-                readTitleInsetCollapsed,
-                opensFullEditor ? 'py-2' : 'py-1.5',
-                'min-w-0 flex-1',
-              )}
+              className={cn(titleBlockClasses, readTitleInsetCollapsed, 'min-w-0 flex-1 py-0')}
               title={mergeTodoContent(row.title, row.body)}
             >
               {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}

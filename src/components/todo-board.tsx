@@ -475,8 +475,10 @@ function StaticTodoLi(props: TodoLiSharedProps) {
   const canExpand = todoRowCanExpand(row);
   const editing = editingId === row.id;
   const editingCompact = editing && !editDetailVisible;
-  /** Match read mode: collapsed rows use `items-center`. Full edit / expanded need top alignment. */
-  const vAlign = (editing && !editingCompact) || expanded ? 'items-start' : 'items-center';
+  /** Collapsed band uses `items-start` so height changes (read ↔ compact edit) do not re-center siblings. */
+  const vAlign = 'items-start';
+  /** Inner title row is `min-h-8` + `items-center`; nudge checkbox to that vertical midpoint vs top edge. */
+  const collapsedBand = !expanded && (!editing || editingCompact);
   return (
     <li className="group relative min-w-0">
       <div
@@ -518,6 +520,7 @@ function StaticTodoLi(props: TodoLiSharedProps) {
         className={cn(
           'flex size-5 shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
+          collapsedBand && 'mt-1.5',
           row.done
             ? cn(
                 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900',
@@ -547,8 +550,7 @@ function StaticTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          /* `self-start`: avoid stretch + `items-center` vertically centering ⋯/trash on tall rows. */
-          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
+          (expanded && !editing) || (editing && !editingCompact) ? 'pt-1.5' : null,
         )}
       >
         <Button
@@ -600,8 +602,8 @@ function SortableTodoLi(props: TodoLiSharedProps) {
   const disabled = editingId === row.id || busy === row.id;
   const editing = editingId === row.id;
   const editingCompact = editing && !editDetailVisible;
-  /** Match read mode: collapsed rows use `items-center`. Full edit / expanded need top alignment. */
-  const vAlign = (editing && !editingCompact) || expanded ? 'items-start' : 'items-center';
+  const vAlign = 'items-start';
+  const collapsedBand = !expanded && (!editing || editingCompact);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
     disabled,
@@ -622,8 +624,8 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'absolute left-0 z-20 flex w-10 -translate-x-full items-start justify-end pr-2',
-          /* Align with card `py-3.5` content edge (matches checkbox row vs collapsed `top-1/2`). */
-          (editing && !editingCompact) || expanded ? 'top-3.5' : 'top-1/2 -translate-y-1/2',
+          /* Fixed offset from card top: `top-1/2` recenters when row height changes (read vs edit). */
+          'top-3.5',
         )}
       >
         <button
@@ -689,6 +691,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
         className={cn(
           'flex size-5 shrink-0 items-center justify-center rounded-full border transition-none',
           'disabled:opacity-50',
+          collapsedBand && 'mt-1.5',
           row.done
             ? cn(
                 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900',
@@ -718,7 +721,7 @@ function SortableTodoLi(props: TodoLiSharedProps) {
       <div
         className={cn(
           'relative z-10 flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100',
-          (expanded && !editing) || (editing && !editingCompact) ? 'self-start pt-1.5' : null,
+          (expanded && !editing) || (editing && !editingCompact) ? 'pt-1.5' : null,
         )}
       >
         <Button

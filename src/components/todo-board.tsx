@@ -213,7 +213,7 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
   const canExpand = todoRowCanExpand(row);
   const expandedDetails = expanded && canExpand ? todoRowExpandedPrimaryAndDetail(row) : null;
   const opensFullEditor = todoRowOpensFullEditor(row);
-  /** Horizontal inset matches edit fields; vertical padding only when expanded (collapsed is strict one line). */
+  /** Horizontal inset matches edit fields; collapsed `py-*` matches inline/full edit so row cross-axis alignment does not jump on focus. */
   const readTitleInsetExpanded = opensFullEditor ? 'pl-5 py-2' : 'pl-2.5 py-1.5';
   const readTitleInsetCollapsed = opensFullEditor ? 'pl-5' : 'pl-2.5';
 
@@ -417,7 +417,12 @@ function TodoRowTextColumn(props: TodoRowTextColumnProps) {
             </div>
           ) : (
             <p
-              className={cn(titleBlockClasses, readTitleInsetCollapsed, 'min-w-0 flex-1 py-0')}
+              className={cn(
+                titleBlockClasses,
+                readTitleInsetCollapsed,
+                opensFullEditor ? 'py-2' : 'py-1.5',
+                'min-w-0 flex-1',
+              )}
               title={mergeTodoContent(row.title, row.body)}
             >
               {canExpand && !expanded ? todoRowCollapsedPreviewTitle(row) : row.title}
